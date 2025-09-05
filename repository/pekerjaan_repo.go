@@ -3,8 +3,8 @@ package repository
 import (
 	"crud-alumni/database"
 	"crud-alumni/model"
+	"time"
 )
-
 
 func GetAllPekerjaan() ([]model.PekerjaanAlumni, error) {
 	rows, err := database.DB.Query(`SELECT * FROM pekerjaan_alumni ORDER BY id`)
@@ -58,13 +58,17 @@ func GetPekerjaanByAlumni(alumniID int) ([]model.PekerjaanAlumni, error) {
 }
 
 func InsertPekerjaan(p model.PekerjaanAlumni) error {
-	_, err := database.DB.Exec(`INSERT INTO pekerjaan_alumni 
-		(alumni_id, nama_perusahaan, posisi_jabatan, bidang_industri, lokasi_kerja, gaji_range, 
-		 tanggal_mulai_kerja, tanggal_selesai_kerja, status_pekerjaan, deskripsi_pekerjaan) 
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+	now := time.Now()
+	_, err := database.DB.Exec(`
+        INSERT INTO pekerjaan_alumni 
+        (alumni_id, nama_perusahaan, posisi_jabatan, bidang_industri,
+         lokasi_kerja, gaji_range, tanggal_mulai_kerja, tanggal_selesai_kerja,
+         status_pekerjaan, deskripsi_pekerjaan, created_at, updated_at)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
 		p.AlumniID, p.NamaPerusahaan, p.PosisiJabatan, p.BidangIndustri,
 		p.LokasiKerja, p.GajiRange, p.TanggalMulaiKerja, p.TanggalSelesaiKerja,
-		p.StatusPekerjaan, p.DeskripsiPekerjaan)
+		p.StatusPekerjaan, p.DeskripsiPekerjaan, now, now,
+	)
 	return err
 }
 
