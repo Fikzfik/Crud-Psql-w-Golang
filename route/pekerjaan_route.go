@@ -1,16 +1,18 @@
 package route
 
 import (
+	"crud-alumni/app/models"
+	"crud-alumni/app/repository"
 	"crud-alumni/helper"
-	"crud-alumni/model"
-	"crud-alumni/repository"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
+	"crud-alumni/middleware"
 )
 
 func RegisterPekerjaanRoutes(api fiber.Router) {
-	pekerjaan := api.Group("/pekerjaan")
+	// semua route pekerjaan harus login dulu
+	pekerjaan := api.Group("/pekerjaan", middleware.AuthRequired())
 
 	pekerjaan.Get("/", func(c *fiber.Ctx) error {
 		data, err := repository.GetAllPekerjaan()
@@ -29,7 +31,7 @@ func RegisterPekerjaanRoutes(api fiber.Router) {
 		return helper.Response(c, 200, "OK", data)
 	})
 
-	pekerjaan.Get("/alumni/:alumni_id", func(c *fiber.Ctx) error {
+	pekerjaan.Get("/alumni/:alumni_id", middleware.AdminOnly(), func(c *fiber.Ctx) error {
 		alumniID, _ := strconv.Atoi(c.Params("alumni_id"))
 		data, err := repository.GetPekerjaanByAlumni(alumniID)
 		if err != nil {
@@ -38,8 +40,8 @@ func RegisterPekerjaanRoutes(api fiber.Router) {
 		return helper.Response(c, 200, "OK", data)
 	})
 
-	pekerjaan.Post("/", func(c *fiber.Ctx) error {
-		var p model.PekerjaanAlumni
+	pekerjaan.Post("/", middleware.AdminOnly(), func(c *fiber.Ctx) error {
+		var p models.PekerjaanAlumni
 		if err := c.BodyParser(&p); err != nil {
 			return helper.Response(c, 400, "Invalid input", nil)
 		}
@@ -49,9 +51,9 @@ func RegisterPekerjaanRoutes(api fiber.Router) {
 		return helper.Response(c, 201, "Pekerjaan ditambahkan", p)
 	})
 
-	pekerjaan.Put("/:id", func(c *fiber.Ctx) error {
+	pekerjaan.Put("/:id", middleware.AdminOnly(), func(c *fiber.Ctx) error {
 		id, _ := strconv.Atoi(c.Params("id"))
-		var p model.PekerjaanAlumni
+		var p models.PekerjaanAlumni
 		if err := c.BodyParser(&p); err != nil {
 			return helper.Response(c, 400, "Invalid input", nil)
 		}
@@ -61,7 +63,7 @@ func RegisterPekerjaanRoutes(api fiber.Router) {
 		return helper.Response(c, 200, "Pekerjaan diupdate", p)
 	})
 
-	pekerjaan.Delete("/:id", func(c *fiber.Ctx) error {
+	pekerjaan.Delete("/:id", middleware.AdminOnly(), func(c *fiber.Ctx) error {
 		id, _ := strconv.Atoi(c.Params("id"))
 		if err := repository.DeletePekerjaan(id); err != nil {
 			return helper.Response(c, 500, "Gagal hapus pekerjaan", nil)

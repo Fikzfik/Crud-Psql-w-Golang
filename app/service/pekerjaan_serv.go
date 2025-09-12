@@ -1,27 +1,27 @@
 package service
 
 import (
-	"crud-alumni/model"
-	"crud-alumni/repository"
+	"crud-alumni/app/models"
+	"crud-alumni/app/repository"
 )
 
 // Ambil semua pekerjaan alumni
-func GetAllPekerjaan() ([]model.PekerjaanAlumni, error) {
+func GetAllPekerjaan() ([]models.PekerjaanAlumni, error) {
 	return repository.GetAllPekerjaan()
 }
 
 // Ambil pekerjaan by ID
-func GetPekerjaanByID(id int) (model.PekerjaanAlumni, error) {
+func GetPekerjaanByID(id int) (models.PekerjaanAlumni, error) {
 	return repository.GetPekerjaanByID(id)
 }
 
 // Ambil pekerjaan berdasarkan alumni
-func GetPekerjaanByAlumni(alumniID int) ([]model.PekerjaanAlumni, error) {
+func GetPekerjaanByAlumni(alumniID int) ([]models.PekerjaanAlumni, error) {
 	return repository.GetPekerjaanByAlumni(alumniID)
 }
 
 // Tambah pekerjaan
-func CreatePekerjaan(p model.PekerjaanAlumni) error {
+func CreatePekerjaan(p models.PekerjaanAlumni) error {
 	if p.NamaPerusahaan == "" || p.PosisiJabatan == "" {
 		return ErrInvalidData
 	}
@@ -29,7 +29,7 @@ func CreatePekerjaan(p model.PekerjaanAlumni) error {
 }
 
 // Update pekerjaan
-func UpdatePekerjaan(id int, p model.PekerjaanAlumni) error {
+func UpdatePekerjaan(id int, p models.PekerjaanAlumni) error {
 	if p.NamaPerusahaan == "" || p.PosisiJabatan == "" {
 		return ErrInvalidData
 	}

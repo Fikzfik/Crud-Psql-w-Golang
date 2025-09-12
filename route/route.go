@@ -8,4 +8,5 @@ func RegisterRoutes(app *fiber.App) {
 	// daftar route dipisah ke file lain
 	RegisterAlumniRoutes(api)
 	RegisterPekerjaanRoutes(api)
+	RegisterAuthRoutes(api)
 }

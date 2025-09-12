@@ -1,16 +1,28 @@
 package route
 
 import (
+	"crud-alumni/app/models"
+	"crud-alumni/app/service"
 	"crud-alumni/helper"
-	"crud-alumni/model"
-	"crud-alumni/service"
+	"fmt"
 	"strconv"
-
+	"crud-alumni/middleware"
 	"github.com/gofiber/fiber/v2"
 )
 
 func RegisterAlumniRoutes(api fiber.Router) {
-	alumni := api.Group("/alumni")
+	alumni := api.Group("/alumni", middleware.AuthRequired())
+
+	alumni.Get("/fakultas/:fakul", func(c *fiber.Ctx) error {
+		fak := c.Params("fakul")
+		fmt.Println(fak)
+		var a models.Alumni
+		data, err := service.GetAllAlumniByFak(fak, a)
+		if err != nil {
+			return helper.Response(c, 500, "Gagal ambil data alumni", nil)
+		}
+		return helper.Response(c, 200, "OK", data)
+	})
 
 	alumni.Get("/", func(c *fiber.Ctx) error {
 		data, err := service.GetAllAlumni()
@@ -29,8 +41,8 @@ func RegisterAlumniRoutes(api fiber.Router) {
 		return helper.Response(c, 200, "OK", data)
 	})
 
-	alumni.Post("/", func(c *fiber.Ctx) error {
-		var a model.Alumni
+	alumni.Post("/",middleware.AdminOnly(), func(c *fiber.Ctx) error {
+		var a models.Alumni
 		if err := c.BodyParser(&a); err != nil {
 			return helper.Response(c, 400, "Invalid input", nil)
 		}
@@ -40,9 +52,9 @@ func RegisterAlumniRoutes(api fiber.Router) {
 		return helper.Response(c, 201, "Alumni ditambahkan", a)
 	})
 
-	alumni.Put("/:id", func(c *fiber.Ctx) error {
+	alumni.Put("/:id",middleware.AdminOnly(), func(c *fiber.Ctx) error {
 		id, _ := strconv.Atoi(c.Params("id"))
-		var a model.Alumni
+		var a models.Alumni
 		if err := c.BodyParser(&a); err != nil {
 			return helper.Response(c, 400, "Invalid input", nil)
 		}
@@ -52,7 +64,7 @@ func RegisterAlumniRoutes(api fiber.Router) {
 		return helper.Response(c, 200, "Alumni diupdate", a)
 	})
 
-	alumni.Delete("/:id", func(c *fiber.Ctx) error {
+	alumni.Delete("/:id",middleware.AdminOnly(), func(c *fiber.Ctx) error {
 		id, _ := strconv.Atoi(c.Params("id"))
 		if err := service.DeleteAlumni(id); err != nil {
 			return helper.Response(c, 500, "Gagal hapus alumni", nil)

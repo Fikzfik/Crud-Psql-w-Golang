@@ -2,20 +2,20 @@ package repository
 
 import (
 	"crud-alumni/database"
-	"crud-alumni/model"
+	"crud-alumni/app/models"
 	"time"
 )
 
-func GetAllPekerjaan() ([]model.PekerjaanAlumni, error) {
+func GetAllPekerjaan() ([]models.PekerjaanAlumni, error) {
 	rows, err := database.DB.Query(`SELECT * FROM pekerjaan_alumni ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var list []model.PekerjaanAlumni
+	var list []models.PekerjaanAlumni
 	for rows.Next() {
-		var p model.PekerjaanAlumni
+		var p models.PekerjaanAlumni
 		rows.Scan(&p.ID, &p.AlumniID, &p.NamaPerusahaan, &p.PosisiJabatan,
 			&p.BidangIndustri, &p.LokasiKerja, &p.GajiRange,
 			&p.TanggalMulaiKerja, &p.TanggalSelesaiKerja,
@@ -26,8 +26,8 @@ func GetAllPekerjaan() ([]model.PekerjaanAlumni, error) {
 	return list, nil
 }
 
-func GetPekerjaanByID(id int) (model.PekerjaanAlumni, error) {
-	var p model.PekerjaanAlumni
+func GetPekerjaanByID(id int) (models.PekerjaanAlumni, error) {
+	var p models.PekerjaanAlumni
 	err := database.DB.QueryRow(`SELECT * FROM pekerjaan_alumni WHERE id=$1`, id).
 		Scan(&p.ID, &p.AlumniID, &p.NamaPerusahaan, &p.PosisiJabatan,
 			&p.BidangIndustri, &p.LokasiKerja, &p.GajiRange,
@@ -37,16 +37,16 @@ func GetPekerjaanByID(id int) (model.PekerjaanAlumni, error) {
 	return p, err
 }
 
-func GetPekerjaanByAlumni(alumniID int) ([]model.PekerjaanAlumni, error) {
+func GetPekerjaanByAlumni(alumniID int) ([]models.PekerjaanAlumni, error) {
 	rows, err := database.DB.Query(`SELECT * FROM pekerjaan_alumni WHERE alumni_id=$1 ORDER BY id`, alumniID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var list []model.PekerjaanAlumni
+	var list []models.PekerjaanAlumni
 	for rows.Next() {
-		var p model.PekerjaanAlumni
+		var p models.PekerjaanAlumni
 		rows.Scan(&p.ID, &p.AlumniID, &p.NamaPerusahaan, &p.PosisiJabatan,
 			&p.BidangIndustri, &p.LokasiKerja, &p.GajiRange,
 			&p.TanggalMulaiKerja, &p.TanggalSelesaiKerja,
@@ -57,7 +57,7 @@ func GetPekerjaanByAlumni(alumniID int) ([]model.PekerjaanAlumni, error) {
 	return list, nil
 }
 
-func InsertPekerjaan(p model.PekerjaanAlumni) error {
+func InsertPekerjaan(p models.PekerjaanAlumni) error {
 	now := time.Now()
 	_, err := database.DB.Exec(`
         INSERT INTO pekerjaan_alumni 
@@ -72,7 +72,7 @@ func InsertPekerjaan(p model.PekerjaanAlumni) error {
 	return err
 }
 
-func UpdatePekerjaan(id int, p model.PekerjaanAlumni) error {
+func UpdatePekerjaan(id int, p models.PekerjaanAlumni) error {
 	_, err := database.DB.Exec(`UPDATE pekerjaan_alumni 
 		SET nama_perusahaan=$1, posisi_jabatan=$2, bidang_industri=$3, lokasi_kerja=$4, 
 		    gaji_range=$5, tanggal_mulai_kerja=$6, tanggal_selesai_kerja=$7, 

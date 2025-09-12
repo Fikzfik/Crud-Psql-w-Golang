@@ -1,4 +1,4 @@
-package model
+package models
 
 import "time"
 
@@ -12,6 +12,7 @@ type Alumni struct {
 	Email      string    `json:"email"`
 	NoTelepon  string    `json:"no_telepon"`
 	Alamat     string    `json:"alamat"`
+	Fakultas   string    `json:"fakultas"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 }
