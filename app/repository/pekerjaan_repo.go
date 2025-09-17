@@ -4,6 +4,7 @@ import (
 	"crud-alumni/database"
 	"crud-alumni/app/models"
 	"time"
+	"fmt"
 )
 
 func GetAllPekerjaan() ([]models.PekerjaanAlumni, error) {
@@ -87,4 +88,51 @@ func UpdatePekerjaan(id int, p models.PekerjaanAlumni) error {
 func DeletePekerjaan(id int) error {
 	_, err := database.DB.Exec(`DELETE FROM pekerjaan_alumni WHERE id=$1`, id)
 	return err
+}
+
+func GetPekerjaanWithPagination(search, sortBy, order string, limit, offset int) ([]models.PekerjaanAlumni, error) {
+	query := fmt.Sprintf(`
+		SELECT id, alumni_id, nama_perusahaan, posisi_jabatan, bidang_industri, 
+		       lokasi_kerja, gaji_range, tanggal_mulai_kerja, tanggal_selesai_kerja, 
+		       status_pekerjaan, deskripsi_pekerjaan, created_at, updated_at
+		FROM pekerjaan_alumni
+		WHERE nama_perusahaan ILIKE $1 
+		   OR posisi_jabatan ILIKE $1 
+		   OR bidang_industri ILIKE $1 
+		   OR lokasi_kerja ILIKE $1
+		ORDER BY %s %s
+		LIMIT $2 OFFSET $3
+	`, sortBy, order)
+
+	rows, err := database.DB.Query(query, "%"+search+"%", limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []models.PekerjaanAlumni
+	for rows.Next() {
+		var p models.PekerjaanAlumni
+		rows.Scan(
+			&p.ID, &p.AlumniID, &p.NamaPerusahaan, &p.PosisiJabatan,
+			&p.BidangIndustri, &p.LokasiKerja, &p.GajiRange,
+			&p.TanggalMulaiKerja, &p.TanggalSelesaiKerja, &p.StatusPekerjaan,
+			&p.DeskripsiPekerjaan, &p.CreatedAt, &p.UpdatedAt,
+		)
+		list = append(list, p)
+	}
+	return list, nil
+}
+
+func CountPekerjaan(search string) (int, error) {
+	var total int
+	err := database.DB.QueryRow(`
+		SELECT COUNT(*) FROM pekerjaan_alumni 
+		WHERE nama_perusahaan ILIKE $1 
+		   OR posisi_jabatan ILIKE $1 
+		   OR bidang_industri ILIKE $1 
+		   OR lokasi_kerja ILIKE $1`,
+		"%"+search+"%",
+	).Scan(&total)
+	return total, err
 }

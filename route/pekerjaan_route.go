@@ -5,9 +5,10 @@ import (
 	"crud-alumni/app/repository"
 	"crud-alumni/helper"
 	"strconv"
-
-	"github.com/gofiber/fiber/v2"
+	"strings"
+	
 	"crud-alumni/middleware"
+	"github.com/gofiber/fiber/v2"
 )
 
 func RegisterPekerjaanRoutes(api fiber.Router) {
@@ -15,11 +16,54 @@ func RegisterPekerjaanRoutes(api fiber.Router) {
 	pekerjaan := api.Group("/pekerjaan", middleware.AuthRequired())
 
 	pekerjaan.Get("/", func(c *fiber.Ctx) error {
-		data, err := repository.GetAllPekerjaan()
+		page, _ := strconv.Atoi(c.Query("page", "1"))
+		limit, _ := strconv.Atoi(c.Query("limit", "10"))
+		sortBy := c.Query("sortBy", "id")
+		order := c.Query("order", "asc")
+		search := c.Query("search", "")
+
+		if page < 1 {
+			page = 1
+		}
+		offset := (page - 1) * limit
+
+		// whitelist kolom yang bisa disort
+		sortWhitelist := map[string]bool{
+			"id": true, "nama_perusahaan": true, "posisi_jabatan": true,
+			"bidang_industri": true, "lokasi_kerja": true,
+			"tanggal_mulai_kerja": true, "status_pekerjaan": true, "created_at": true,
+		}
+		if !sortWhitelist[sortBy] {
+			sortBy = "id"
+		}
+		if strings.ToLower(order) != "desc" {
+			order = "asc"
+		}
+
+		data, err := repository.GetPekerjaanWithPagination(search, sortBy, order, limit, offset)
 		if err != nil {
 			return helper.Response(c, 500, "Gagal ambil data pekerjaan", nil)
 		}
-		return helper.Response(c, 200, "OK", data)
+
+		total, err := repository.CountPekerjaan(search)
+		if err != nil {
+			return helper.Response(c, 500, "Gagal hitung data pekerjaan", nil)
+		}
+
+		response := models.PekerjaanResponse{
+			Data: data,
+			Meta: models.MetaInfo{
+				Page:   page,
+				Limit:  limit,
+				Total:  total,
+				Pages:  (total + limit - 1) / limit,
+				SortBy: sortBy,
+				Order:  order,
+				Search: search,
+			},
+		}
+
+		return c.JSON(response)
 	})
 
 	pekerjaan.Get("/:id", func(c *fiber.Ctx) error {
