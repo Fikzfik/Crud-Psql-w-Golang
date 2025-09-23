@@ -118,4 +118,6 @@ func RegisterAlumniRoutes(api fiber.Router) {
 		}
 		return helper.Response(c, 200, "Alumni dihapus", nil)
 	})
+
+
 }

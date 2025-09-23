@@ -103,3 +103,6 @@ func CountAlumni(search string) (int, error) {
 	err := database.DB.QueryRow(`SELECT COUNT(*) FROM alumni WHERE nama ILIKE $1 OR jurusan ILIKE $1 OR email ILIKE $1 OR fakultas ILIKE $1`, "%"+search+"%").Scan(&total)
 	return total, err
 }
+
+
+

@@ -16,6 +16,7 @@ func RegisterAuthRoutes(api fiber.Router) {
 	// protected
 	protected := api.Group("", middleware.AuthRequired())
 	protected.Get("/profile", profileHandler)
+	protected.Get("/isdeleted", profileHandler)
 }
 
 func loginHandler(c *fiber.Ctx) error {

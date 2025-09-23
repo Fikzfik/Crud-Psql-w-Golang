@@ -10,7 +10,7 @@ func main() {
 	config.LoadEnv()
 	config.InitLogger()
 	database.ConnectDB()
-	database.MigrateTesting(database.DB)
+	// database.MigrateTesting(database.DB)
 	
 	app := config.NewApp()
 	route.RegisterRoutes(app)

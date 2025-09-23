@@ -44,3 +44,4 @@ func UpdateAlumni(id int, a models.Alumni) error {
 func DeleteAlumni(id int) error {
 	return repository.DeleteAlumni(id)
 }
+

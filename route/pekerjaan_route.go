@@ -3,11 +3,12 @@ package route
 import (
 	"crud-alumni/app/models"
 	"crud-alumni/app/repository"
+	"crud-alumni/app/service"
 	"crud-alumni/helper"
+	"crud-alumni/middleware"
 	"strconv"
 	"strings"
-	
-	"crud-alumni/middleware"
+
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -15,6 +16,16 @@ func RegisterPekerjaanRoutes(api fiber.Router) {
 	// semua route pekerjaan harus login dulu
 	pekerjaan := api.Group("/pekerjaan", middleware.AuthRequired())
 
+	pekerjaan.Get("/isdeleted", func(c *fiber.Ctx) error {
+		role := c.Locals("role").(string)
+		userID := c.Locals("user_id").(int)
+	
+		if err := service.IsDeleted(role, userID); err != nil {
+			return helper.Response(c, 500, "Gagal hapus alumni", nil)
+		}
+		return helper.Response(c, 200, "Alumni dihapus", nil)
+	})
+	
 	pekerjaan.Get("/", func(c *fiber.Ctx) error {
 		page, _ := strconv.Atoi(c.Query("page", "1"))
 		limit, _ := strconv.Atoi(c.Query("limit", "10"))
@@ -114,4 +125,5 @@ func RegisterPekerjaanRoutes(api fiber.Router) {
 		}
 		return helper.Response(c, 200, "Pekerjaan dihapus", nil)
 	})
+
 }

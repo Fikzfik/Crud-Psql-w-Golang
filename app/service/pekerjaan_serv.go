@@ -41,4 +41,6 @@ func DeletePekerjaan(id int) error {
 	return repository.DeletePekerjaan(id)
 }
 
-
+func IsDeleted(role string,id int) error {
+	return repository.IsDeleted(role,id)
+}

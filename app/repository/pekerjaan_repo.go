@@ -1,10 +1,10 @@
 package repository
 
 import (
-	"crud-alumni/database"
 	"crud-alumni/app/models"
-	"time"
+	"crud-alumni/database"
 	"fmt"
+	"time"
 )
 
 func GetAllPekerjaan() ([]models.PekerjaanAlumni, error) {
@@ -135,4 +135,34 @@ func CountPekerjaan(search string) (int, error) {
 		"%"+search+"%",
 	).Scan(&total)
 	return total, err
+}
+
+func IsDeleted(role string, id int) error {
+	if role == "admin" {
+		// kalau admin → reset semua pekerjaan jadi isdelete=false
+		fmt.Println("alumni hapus semua")
+		_, err := database.DB.Exec(`
+            UPDATE pekerjaan_alumni 
+            SET updated_at = NOW(), isdelete = false`)
+		if err != nil {
+			return fmt.Errorf("gagal reset pekerjaan_alumni: %w", err)
+		}
+		return nil
+	}
+	var alumniID int
+	err := database.DB.QueryRow(`SELECT alumni_id FROM users WHERE id=$1`, id).Scan(&alumniID)
+	fmt.Println(err)
+	if err != nil {
+		return fmt.Errorf("gagal ambil alumni_id: %w", err)
+	}
+	fmt.Println(alumniID)
+	_, err = database.DB.Exec(`
+        UPDATE pekerjaan_alumni 
+        SET updated_at = NOW(), isdelete = false
+        WHERE alumni_id = $1`, alumniID)
+	if err != nil {
+		return fmt.Errorf("gagal update pekerjaan_alumni: %w", err)
+	}
+
+	return nil
 }

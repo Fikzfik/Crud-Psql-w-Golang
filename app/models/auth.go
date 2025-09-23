@@ -1,13 +1,14 @@
 package models
 
 import (
-	"time"
 	"github.com/golang-jwt/jwt/v5"
+	"time"
 )
 
 // Struct User sesuai tabel users
 type User struct {
 	ID        int       `json:"id"`
+	AlumniId  int       `json:"alumni_id"`
 	Username  string    `json:"username"`
 	Email     string    `json:"email"`
 	Role      string    `json:"role"`

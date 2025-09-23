@@ -24,20 +24,20 @@ func MigrateTesting(DB *sql.DB) {
 
 	// Insert admin
 	_, err = DB.Exec(`
-		INSERT INTO users (username, email, password_hash, role)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO users (username,alumni_id, email, password_hash, role)
+		VALUES ($1, $2, $3, $4,$5)
 		ON CONFLICT (username) DO NOTHING;
-	`, "admin", "admin@university.com", adminHash, "admin")
+	`, "admin",4, "admin@university.com", adminHash, "admin")
 	if err != nil {
 		log.Fatalf("Gagal insert admin: %v", err)
 	}
 
 	// Insert user biasa
 	_, err = DB.Exec(`
-		INSERT INTO users (username, email, password_hash, role)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO users (username, alumni_id,email, password_hash, role)
+		VALUES ($1, $2, $3, $4,$5)
 		ON CONFLICT (username) DO NOTHING;
-	`, "user1", "user1@university.com", userHash, "user")
+	`, "user1",3, "user1@university.com", userHash, "user")
 	if err != nil {
 		log.Fatalf("Gagal insert user1: %v", err)
 	}
