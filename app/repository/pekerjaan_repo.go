@@ -3,6 +3,7 @@ package repository
 import (
 	"crud-alumni/app/models"
 	"crud-alumni/database"
+	"database/sql"
 	"fmt"
 	"time"
 )
@@ -53,18 +54,72 @@ func RestoredUser(id int, p models.PekerjaanAlumni) ([]models.PekerjaanAlumni, e
 			&p.BidangIndustri, &p.LokasiKerja, &p.GajiRange,
 			&p.TanggalMulaiKerja, &p.TanggalSelesaiKerja,
 			&p.StatusPekerjaan, &p.DeskripsiPekerjaan,
-			&p.CreatedAt, &p.UpdatedAt,&p.IsDeleted)
+			&p.CreatedAt, &p.UpdatedAt, &p.IsDeleted)
 		list = append(list, p)
 	}
 	return list, nil
 }
 
-func IsAktif() ([]models.PekerjaanAlumni, error) {
-	rows, err := database.DB.Query(`SELECT a.id,a.nama,a.jurusan,a.angkatan,a.tahunlulus,a.email,p.posisi_jabatan, p.bidang_industri,
-         p.lokasi_kerja, p.gaji_range, p.tanggal_mulai_kerja, p.tanggal_selesai_kerja,p.isdeleted
-         p.status_pekerjaan, p.deskripsi_pekerjaan FROM alumni a left join pekerjaan_alumni p on a.id = p.alumni_id WHERE isdelete=true`)
+func Userdeleted(id int, p models.PekerjaanAlumni) ([]models.PekerjaanAlumni, error) {
+	_, err := database.DB.Exec(`UPDATE pekerjaan_alumni 
+	SET updated_at = NOW(), isdelete = false
+	WHERE alumni_id = $1`, id)
 	if err != nil {
 		return nil, err
+	}
+	rows, err := database.DB.Query(`SELECT * FROM pekerjaan_alumni WHERE alumni_id=$1 ORDER BY id`, id)
+	var list []models.PekerjaanAlumni
+	for rows.Next() {
+		var p models.PekerjaanAlumni
+		rows.Scan(&p.ID, &p.AlumniID, &p.NamaPerusahaan, &p.PosisiJabatan,
+			&p.BidangIndustri, &p.LokasiKerja, &p.GajiRange,
+			&p.TanggalMulaiKerja, &p.TanggalSelesaiKerja,
+			&p.StatusPekerjaan, &p.DeskripsiPekerjaan,
+			&p.CreatedAt, &p.UpdatedAt, &p.IsDeleted)
+		list = append(list, p)
+	}
+	return list, nil
+}
+
+func IsAktif(role string, id int) ([]models.PekerjaanAlumni, error) {
+	var (
+		rows     *sql.Rows
+		err      error
+		alumniID int
+	)
+
+	fmt.Println("User ID:", id)
+
+	// Ambil alumni_id dari tabel users kalau role bukan admin
+	if role != "admin" {
+		err = database.DB.QueryRow(`SELECT alumni_id FROM users WHERE id=$1`, id).Scan(&alumniID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, fmt.Errorf("user dengan id %d tidak ditemukan", id)
+			}
+			return nil, fmt.Errorf("gagal ambil alumni_id: %v", err)
+		}
+		fmt.Println("Alumni ID:", alumniID)
+	}
+
+	queryAdmin := `
+	SELECT id, alumni_id, nama_perusahaan, posisi_jabatan, bidang_industri, 
+	       lokasi_kerja, gaji_range, tanggal_mulai_kerja, tanggal_selesai_kerja, 
+	       status_pekerjaan, deskripsi_pekerjaan, created_at, updated_at, isdelete 
+	FROM pekerjaan_alumni 
+	WHERE isdelete = true
+`
+
+	queryUser := queryAdmin + ` AND alumni_id = $1`
+
+	// Jalankan query
+	if role == "admin" {
+		rows, err = database.DB.Query(queryAdmin)
+	} else {
+		rows, err = database.DB.Query(queryUser, alumniID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("query error: %v", err)
 	}
 	defer rows.Close()
 
@@ -78,11 +133,15 @@ func IsAktif() ([]models.PekerjaanAlumni, error) {
 			&p.StatusPekerjaan, &p.DeskripsiPekerjaan,
 			&p.CreatedAt, &p.UpdatedAt, &p.IsDeleted,
 		); err != nil {
-			fmt.Println("Scan error:", err)
-			continue
+			return nil, fmt.Errorf("scan error: %v", err)
 		}
 		list = append(list, p)
 	}
+
+	if len(list) == 0 {
+		return []models.PekerjaanAlumni{}, nil
+	}
+
 	return list, nil
 }
 
@@ -186,17 +245,7 @@ func CountPekerjaan(search string) (int, error) {
 }
 
 func IsDeleted(role string, id int) error {
-	if role == "admin" {
-		// kalau admin → reset semua pekerjaan jadi isdelete=false
-		fmt.Println("alumni hapus semua")
-		_, err := database.DB.Exec(`
-            UPDATE pekerjaan_alumni 
-            SET updated_at = NOW(), isdelete = false`)
-		if err != nil {
-			return fmt.Errorf("gagal reset pekerjaan_alumni: %w", err)
-		}
-		return nil
-	}
+
 	var alumniID int
 	err := database.DB.QueryRow(`SELECT alumni_id FROM users WHERE id=$1`, id).Scan(&alumniID)
 	fmt.Println(err)
