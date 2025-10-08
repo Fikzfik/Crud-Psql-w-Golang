@@ -9,12 +9,7 @@ import (
 // MigrateTesting hapus semua data dan insert ulang data sample
 func MigrateTesting(DB *sql.DB) {
 	// Hapus semua data (urutannya penting karena ada foreign key)
-	_, err := DB.Exec(`
-		DELETE FROM users;
-	`)
-	if err != nil {
-		log.Fatalf("Gagal hapus data: %v", err)
-	}
+	
 	adminPass := "123456"
 	userPass := "123456"
 
@@ -23,11 +18,11 @@ func MigrateTesting(DB *sql.DB) {
 	userHash, _ := helper.HashPassword(userPass)
 
 	// Insert admin
-	_, err = DB.Exec(`
+	_, err := DB.Exec(`
 		INSERT INTO users (username,alumni_id, email, password_hash, role)
 		VALUES ($1, $2, $3, $4,$5)
 		ON CONFLICT (username) DO NOTHING;
-	`, "admin",4, "admin@university.com", adminHash, "admin")
+	`, "admin",1, "admin1@university.com", adminHash, "admin")
 	if err != nil {
 		log.Fatalf("Gagal insert admin: %v", err)
 	}
@@ -37,9 +32,17 @@ func MigrateTesting(DB *sql.DB) {
 		INSERT INTO users (username, alumni_id,email, password_hash, role)
 		VALUES ($1, $2, $3, $4,$5)
 		ON CONFLICT (username) DO NOTHING;
-	`, "user1",3, "user1@university.com", userHash, "user")
+	`, "user4",2, "user3@university.com", userHash, "user")
 	if err != nil {
 		log.Fatalf("Gagal insert user1: %v", err)
 	}
 
+	_, err = DB.Exec(`
+		INSERT INTO users (username, alumni_id,email, password_hash, role)
+		VALUES ($1, $2, $3, $4,$5)
+		ON CONFLICT (username) DO NOTHING;
+	`, "user4",3, "user4@university.com", userHash, "user")
+	if err != nil {
+		log.Fatalf("Gagal insert user1: %v", err)
+	}
 }

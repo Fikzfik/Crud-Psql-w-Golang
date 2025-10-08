@@ -7,10 +7,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// Secret key (panjang, minimal 32 karakter)
 var jwtSecret = []byte("your-secret-key-min-32-characters-long")
 
-// Generate token JWT untuk user yang login
 func GenerateToken(user models.User) (string, error) {
 	claims := models.JWTClaims{
 		UserID:   user.ID,

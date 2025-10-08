@@ -41,6 +41,18 @@ func DeletePekerjaan(id int) error {
 	return repository.DeletePekerjaan(id)
 }
 
-func IsDeleted(role string,id int) error {
-	return repository.IsDeleted(role,id)
+func IsDeleted(role string, id int) error {
+	return repository.IsDeleted(role, id)
+}
+
+func IsAktif() ([]models.PekerjaanAlumni, error) {
+	return repository.IsAktif()
+}
+
+func IsRestored(role string, id int) error {
+	return repository.IsRestored(role, id)
+}
+
+func RestoredUser(id int, p models.PekerjaanAlumni)([]models.PekerjaanAlumni, error){
+	return repository.RestoredUser(id, p)
 }

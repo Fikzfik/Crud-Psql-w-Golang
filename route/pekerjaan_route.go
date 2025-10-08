@@ -19,13 +19,52 @@ func RegisterPekerjaanRoutes(api fiber.Router) {
 	pekerjaan.Get("/isdeleted", func(c *fiber.Ctx) error {
 		role := c.Locals("role").(string)
 		userID := c.Locals("user_id").(int)
-	
+
 		if err := service.IsDeleted(role, userID); err != nil {
 			return helper.Response(c, 500, "Gagal hapus alumni", nil)
 		}
 		return helper.Response(c, 200, "Alumni dihapus", nil)
 	})
+	pekerjaan.Get("/aktif", func(c *fiber.Ctx) error {
+		data, err := service.IsAktif()
+		if err != nil {
+			return helper.Response(c, 404, "Pekerjaan tidak ditemukans", data)
+		}
+		return helper.Response(c, 200, "OK", data)
+	})
+
 	
+	pekerjaan.Get("/isrestored", func(c *fiber.Ctx) error {
+		role := c.Locals("role").(string)
+		userID := c.Locals("user_id").(int)
+		
+		if err := service.IsRestored(role, userID); err != nil {
+			return helper.Response(c, 500, "Gagal hapus alumni", nil)
+		}
+		return helper.Response(c, 200, "Alumni dikembalikan", nil)
+	})
+	pekerjaan.Get("/:id", func(c *fiber.Ctx) error {
+		id, _ := strconv.Atoi(c.Params("id"))
+		data, err := repository.GetPekerjaanByID(id)
+		if err != nil {
+			return helper.Response(c, 404, "Pekerjaan tidak ditemukan", nil)
+		}
+		return helper.Response(c, 200, "OK", data)
+	})
+
+	pekerjaan.Post("/restored/:userid", middleware.AdminOnly(), func(c *fiber.Ctx) error {
+		alumniID, _ := strconv.Atoi(c.Params("userid"))
+		var p models.PekerjaanAlumni
+		if err := c.BodyParser(&p); err != nil {
+			return helper.Response(c, 400, "Invalid input", nil)
+		}
+		data, err := service.RestoredUser(alumniID, p)
+		if err != nil {
+			return helper.Response(c, 500, "berhasil ubah user lain", nil)
+		}
+		return helper.Response(c, 200, "OK", data)
+	})
+
 	pekerjaan.Get("/", func(c *fiber.Ctx) error {
 		page, _ := strconv.Atoi(c.Query("page", "1"))
 		limit, _ := strconv.Atoi(c.Query("limit", "10"))
@@ -75,15 +114,6 @@ func RegisterPekerjaanRoutes(api fiber.Router) {
 		}
 
 		return c.JSON(response)
-	})
-
-	pekerjaan.Get("/:id", func(c *fiber.Ctx) error {
-		id, _ := strconv.Atoi(c.Params("id"))
-		data, err := repository.GetPekerjaanByID(id)
-		if err != nil {
-			return helper.Response(c, 404, "Pekerjaan tidak ditemukan", nil)
-		}
-		return helper.Response(c, 200, "OK", data)
 	})
 
 	pekerjaan.Get("/alumni/:alumni_id", middleware.AdminOnly(), func(c *fiber.Ctx) error {

@@ -38,6 +38,54 @@ func GetPekerjaanByID(id int) (models.PekerjaanAlumni, error) {
 	return p, err
 }
 
+func RestoredUser(id int, p models.PekerjaanAlumni) ([]models.PekerjaanAlumni, error) {
+	_, err := database.DB.Exec(`UPDATE pekerjaan_alumni 
+	SET updated_at = NOW(), isdelete = true
+	WHERE alumni_id = $1`, id)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := database.DB.Query(`SELECT * FROM pekerjaan_alumni WHERE alumni_id=$1 ORDER BY id`, id)
+	var list []models.PekerjaanAlumni
+	for rows.Next() {
+		var p models.PekerjaanAlumni
+		rows.Scan(&p.ID, &p.AlumniID, &p.NamaPerusahaan, &p.PosisiJabatan,
+			&p.BidangIndustri, &p.LokasiKerja, &p.GajiRange,
+			&p.TanggalMulaiKerja, &p.TanggalSelesaiKerja,
+			&p.StatusPekerjaan, &p.DeskripsiPekerjaan,
+			&p.CreatedAt, &p.UpdatedAt,&p.IsDeleted)
+		list = append(list, p)
+	}
+	return list, nil
+}
+
+func IsAktif() ([]models.PekerjaanAlumni, error) {
+	rows, err := database.DB.Query(`SELECT a.id,a.nama,a.jurusan,a.angkatan,a.tahunlulus,a.email,p.posisi_jabatan, p.bidang_industri,
+         p.lokasi_kerja, p.gaji_range, p.tanggal_mulai_kerja, p.tanggal_selesai_kerja,p.isdeleted
+         p.status_pekerjaan, p.deskripsi_pekerjaan FROM alumni a left join pekerjaan_alumni p on a.id = p.alumni_id WHERE isdelete=true`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []models.PekerjaanAlumni
+	for rows.Next() {
+		var p models.PekerjaanAlumni
+		if err := rows.Scan(
+			&p.ID, &p.AlumniID, &p.NamaPerusahaan, &p.PosisiJabatan,
+			&p.BidangIndustri, &p.LokasiKerja, &p.GajiRange,
+			&p.TanggalMulaiKerja, &p.TanggalSelesaiKerja,
+			&p.StatusPekerjaan, &p.DeskripsiPekerjaan,
+			&p.CreatedAt, &p.UpdatedAt, &p.IsDeleted,
+		); err != nil {
+			fmt.Println("Scan error:", err)
+			continue
+		}
+		list = append(list, p)
+	}
+	return list, nil
+}
+
 func GetPekerjaanByAlumni(alumniID int) ([]models.PekerjaanAlumni, error) {
 	rows, err := database.DB.Query(`SELECT * FROM pekerjaan_alumni WHERE alumni_id=$1 ORDER BY id`, alumniID)
 	if err != nil {
@@ -159,6 +207,35 @@ func IsDeleted(role string, id int) error {
 	_, err = database.DB.Exec(`
         UPDATE pekerjaan_alumni 
         SET updated_at = NOW(), isdelete = false
+        WHERE alumni_id = $1`, alumniID)
+	if err != nil {
+		return fmt.Errorf("gagal update pekerjaan_alumni: %w", err)
+	}
+	return nil
+}
+
+func IsRestored(role string, id int) error {
+	if role == "admin" {
+		// kalau admin → reset semua pekerjaan jadi isdelete=false
+		fmt.Println("alumni direstored")
+		_, err := database.DB.Exec(`
+            UPDATE pekerjaan_alumni 
+            SET updated_at = NOW(), isdelete = true`)
+		if err != nil {
+			return fmt.Errorf("gagal reset pekerjaan_alumni: %w", err)
+		}
+		return nil
+	}
+	var alumniID int
+	err := database.DB.QueryRow(`SELECT alumni_id FROM users WHERE id=$1`, id).Scan(&alumniID)
+	fmt.Println(err)
+	if err != nil {
+		return fmt.Errorf("gagal ambil alumni_id: %w", err)
+	}
+	fmt.Println(alumniID)
+	_, err = database.DB.Exec(`
+        UPDATE pekerjaan_alumni 
+        SET updated_at = NOW(), isdelete = true
         WHERE alumni_id = $1`, alumniID)
 	if err != nil {
 		return fmt.Errorf("gagal update pekerjaan_alumni: %w", err)
