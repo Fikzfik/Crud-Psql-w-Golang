@@ -102,13 +102,13 @@ func UpdatePekerjaanHandler(c *fiber.Ctx) error {
 	return helper.Response(c, 200, "Pekerjaan diupdate", p)
 }
 
-func DeletePekerjaanHandler(c *fiber.Ctx) error {
-	id, _ := strconv.Atoi(c.Params("id"))
-	if err := DeletePekerjaan(id); err != nil {
-		return helper.Response(c, 500, "Gagal hapus pekerjaan", nil)
-	}
-	return helper.Response(c, 200, "Pekerjaan dihapus", nil)
-}
+// func DeletePekerjaanHandler(c *fiber.Ctx) error {
+// 	id, _ := strconv.Atoi(c.Params("id"))
+// 	if err := DeletePekerjaan(id); err != nil {
+// 		return helper.Response(c, 500, "Gagal hapus pekerjaan", nil)
+// 	}
+// 	return helper.Response(c, 200, "Pekerjaan dihapus", nil)
+// }
 
 // Soft delete / restore handlers
 func SoftDeleteHandler(c *fiber.Ctx) error {
@@ -163,6 +163,64 @@ func RestoreUserPekerjaanHandler(c *fiber.Ctx) error {
 		return helper.Response(c, 500, "Gagal restore data user lain", nil)
 	}
 	return helper.Response(c, 200, "User direstore", data)
+}
+
+func RestorePekerjaan(c *fiber.Ctx) error {
+	role := c.Locals("role").(string)
+	loginID := c.Locals("user_id").(int)
+	paramID := c.Params("idpekerjaan")
+	var targetID int
+	if paramID != "" {
+		if role != "admin" {
+			return helper.Response(c, 403, "Hanya admin yang bisa restore user lain", nil)
+		}
+		id, err := strconv.Atoi(paramID)
+		if err != nil {
+			return helper.Response(c, 400, "Parameter ID tidak valid", nil)
+		}
+		targetID = id
+	} else {
+		targetID = loginID
+	}
+
+	if err := repository.IsRestored(role, targetID); err != nil {
+		return helper.Response(c, 500, "Gagal restore data", nil)
+	}
+
+	return helper.Response(c, 200, "Data berhasil direstore", nil)
+}
+
+func SoftDeletePekerjaan(c *fiber.Ctx) error {
+	//ambil role yang login
+	role := c.Locals("role").(string)
+	//ambil id yang login
+	loginID := c.Locals("user_id").(int)
+	//ambil id dari parameter
+	paramID := c.Params("idpekerjaan")
+	//buat variable baru buat nampung nanti
+	var targetID int
+	//cek apakah ngirim parameter/ga
+	if paramID != "" {
+		//cek apakah yg login admin
+		if role != "admin" {
+			return helper.Response(c, 403, "Hanya admin yang bisa hapus user lain", nil)
+		}
+		//ubah parameter int jadi string
+		id, err := strconv.Atoi(paramID)
+		if err != nil {
+			return helper.Response(c, 400, "Parameter ID tidak valid", nil)
+		}
+		//var diisi dengan parameter
+		targetID = id
+		} else {
+		//var diisi dengan id yg login
+		targetID = loginID
+	}
+	//ke repo dengan mengirim role dan id yg login/parameter 
+	if err := repository.IsDeleted(role, targetID); err != nil {
+		return helper.Response(c, 500, "Gagal hapus data", nil)
+	}
+	return helper.Response(c, 200, "Data berhasil dihapus (soft delete)", nil)
 }
 
 // ===== LOGIKA BISNIS =====

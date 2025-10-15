@@ -245,18 +245,24 @@ func CountPekerjaan(search string) (int, error) {
 }
 
 func IsDeleted(role string, id int) error {
-
 	var alumniID int
-	err := database.DB.QueryRow(`SELECT alumni_id FROM users WHERE id=$1`, id).Scan(&alumniID)
-	fmt.Println(err)
-	if err != nil {
-		return fmt.Errorf("gagal ambil alumni_id: %w", err)
+	//cek admin/bukan
+	if role == "admin" {
+		//mengisi id dengan parameter user lain
+		alumniID = id
+		} else {
+			//mengambil id diri sendiri
+			err := database.DB.QueryRow(`SELECT alumni_id FROM users WHERE id=$1`, id).Scan(&alumniID)
+			if err != nil {
+			return fmt.Errorf("gagal ambil alumni_id: %w", err)
+		}
 	}
-	fmt.Println(alumniID)
-	_, err = database.DB.Exec(`
-        UPDATE pekerjaan_alumni 
-        SET updated_at = NOW(), isdelete = false
-        WHERE alumni_id = $1`, alumniID)
+	
+	//mengganti soft delete dari id yg login/parameter
+	_, err := database.DB.Exec(`
+		UPDATE pekerjaan_alumni 
+		SET updated_at = NOW(), isdelete = true
+		WHERE id= $1`, alumniID)
 	if err != nil {
 		return fmt.Errorf("gagal update pekerjaan_alumni: %w", err)
 	}
@@ -264,31 +270,24 @@ func IsDeleted(role string, id int) error {
 }
 
 func IsRestored(role string, id int) error {
-	if role == "admin" {
-		// kalau admin → reset semua pekerjaan jadi isdelete=false
-		fmt.Println("alumni direstored")
-		_, err := database.DB.Exec(`
-            UPDATE pekerjaan_alumni 
-            SET updated_at = NOW(), isdelete = true`)
-		if err != nil {
-			return fmt.Errorf("gagal reset pekerjaan_alumni: %w", err)
-		}
-		return nil
-	}
 	var alumniID int
-	err := database.DB.QueryRow(`SELECT alumni_id FROM users WHERE id=$1`, id).Scan(&alumniID)
-	fmt.Println(err)
-	if err != nil {
-		return fmt.Errorf("gagal ambil alumni_id: %w", err)
+
+	if role == "admin" {
+		alumniID = id
+	} else {
+		err := database.DB.QueryRow(`SELECT alumni_id FROM users WHERE id=$1`, id).Scan(&alumniID)
+		if err != nil {
+			return fmt.Errorf("gagal ambil alumni_id: %w", err)
+		}
 	}
-	fmt.Println(alumniID)
-	_, err = database.DB.Exec(`
-        UPDATE pekerjaan_alumni 
-        SET updated_at = NOW(), isdelete = true
-        WHERE alumni_id = $1`, alumniID)
+
+	_, err := database.DB.Exec(`
+		UPDATE pekerjaan_alumni 
+		SET updated_at = NOW(), isdelete = false
+		WHERE id = $1`, alumniID)
 	if err != nil {
 		return fmt.Errorf("gagal update pekerjaan_alumni: %w", err)
 	}
-
 	return nil
 }
+
