@@ -1,36 +1,43 @@
 package database
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"crud-alumni/config"
 
-	_ "github.com/lib/pq"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-var DB *sql.DB
+var DB *mongo.Database // Ganti dari *sql.DB ke *mongo.Database
 
+// ConnectDB membuat koneksi ke MongoDB
 func ConnectDB() {
-	host := config.GetEnv("DB_HOST", "localhost")
-	port := config.GetEnv("DB_PORT", "5432")
-	user := config.GetEnv("DB_USER", "postgres")
-	pass := config.GetEnv("DB_PASS", "postgres")
-	name := config.GetEnv("DB_NAME", "alumni_db")
+	// Ambil konfigurasi dari .env
+	mongoURI := config.GetEnv("MONGO_URI", "mongodb://localhost:27017")
+	dbName := config.GetEnv("MONGO_DB_NAME", "alumni_db")
 
-	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		host, port, user, pass, name)
+	// Siapkan client MongoDB
+	clientOptions := options.Client().ApplyURI(mongoURI)
 
-	var err error
-	DB, err = sql.Open("postgres", dsn)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
-		log.Fatal(" Gagal koneksi DB:", err)
+		log.Fatalf("❌ Gagal koneksi ke MongoDB: %v", err)
 	}
 
-	if err = DB.Ping(); err != nil {
-		log.Fatal(" DB tidak bisa di-ping:", err)
+	// Ping MongoDB untuk memastikan koneksi
+	if err := client.Ping(ctx, nil); err != nil {
+		log.Fatalf("❌ MongoDB tidak bisa di-ping: %v", err)
 	}
 
-	fmt.Println(" Database connected")
+	fmt.Println("✅ Berhasil terhubung ke MongoDB!")
+
+	// Simpan database global
+	DB = client.Database(dbName)
 }

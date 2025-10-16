@@ -1,23 +1,24 @@
 package models
 
 import (
-	"github.com/golang-jwt/jwt/v5"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-// Struct User sesuai tabel users
+// Struct User sesuai collection users
 type User struct {
-	ID        int       `json:"id"`
-	AlumniId  int       `json:"alumni_id"`
-	Username  string    `json:"username"`
-	Email     string    `json:"email"`
-	Role      string    `json:"role"`
-	CreatedAt time.Time `json:"created_at"`
+	ID           primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	Email        string             `bson:"email" json:"email"`
+	PasswordHash string             `bson:"password_hash,omitempty" json:"-"`
+	Role         string             `bson:"role" json:"role"`
+	CreatedAt    time.Time          `bson:"created_at" json:"created_at"`
 }
 
 // Request body untuk login
 type LoginRequest struct {
-	Username string `json:"username"`
+	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
@@ -29,8 +30,8 @@ type LoginResponse struct {
 
 // Payload JWT
 type JWTClaims struct {
-	UserID   int    `json:"user_id"`
-	Username string `json:"username"`
-	Role     string `json:"role"`
+	UserID string `json:"user_id"` // gunakan string karena ObjectID di Mongo
+	Email  string `json:"email"`
+	Role   string `json:"role"`
 	jwt.RegisteredClaims
 }

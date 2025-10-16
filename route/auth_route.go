@@ -12,5 +12,4 @@ func RegisterAuthRoutes(api fiber.Router) {
 
 	protected := api.Group("", middleware.AuthRequired())
 	protected.Get("/profile", service.ProfileHandler)
-	protected.Get("/isdeleted", service.IsDeletedProfileHandler)
 }

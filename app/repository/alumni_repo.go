@@ -3,106 +3,184 @@ package repository
 import (
 	"crud-alumni/app/models"
 	"crud-alumni/database"
-
 	"fmt"
+	"time"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func GetAllAlumniByFak(fak string, a models.Alumni) ([]models.Alumni, error) {
-	rows, err := database.DB.Query(`SELECT * FROM alumni where fakultas=$1`, fak)
+
+// Ambil semua alumni berdasarkan fakultas
+func GetAllAlumniByFak(fak string) ([]models.Alumni, error) {
+	collection := database.DB.Collection("alumni")
+
+	filter := bson.M{"fakultas": fak}
+	cursor, err := collection.Find(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
+	defer cursor.Close(ctx)
 
 	var list []models.Alumni
-	for rows.Next() {
+	for cursor.Next(ctx) {
 		var a models.Alumni
-		rows.Scan(&a.ID, &a.NIM, &a.Nama, &a.Jurusan, &a.Angkatan,
-			&a.TahunLulus, &a.Email, &a.NoTelepon, &a.Alamat, &a.CreatedAt, &a.UpdatedAt, &a.Fakultas)
+		if err := cursor.Decode(&a); err != nil {
+			return nil, err
+		}
 		list = append(list, a)
 	}
 	return list, nil
 }
 
+// Ambil semua alumni
 func GetAllAlumni() ([]models.Alumni, error) {
-	rows, err := database.DB.Query(`SELECT * FROM alumni ORDER BY id`)
+	collection := database.DB.Collection("alumni")
+
+	cursor, err := collection.Find(ctx, bson.M{})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer cursor.Close(ctx)
 
 	var list []models.Alumni
-	for rows.Next() {
+	for cursor.Next(ctx) {
 		var a models.Alumni
-		rows.Scan(
-			&a.ID, &a.NIM, &a.Nama, &a.Jurusan, &a.Angkatan,
-			&a.TahunLulus, &a.Email, &a.NoTelepon, &a.Alamat, &a.CreatedAt, &a.UpdatedAt, &a.Fakultas)
+		if err := cursor.Decode(&a); err != nil {
+			return nil, err
+		}
 		list = append(list, a)
 	}
 	return list, nil
 }
 
-func GetAlumniByID(id int) (models.Alumni, error) {
+// Ambil alumni berdasarkan ID
+func GetAlumniByID(id string) (models.Alumni, error) {
+	collection := database.DB.Collection("alumni")
+
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return models.Alumni{}, fmt.Errorf("invalid ObjectID: %v", err)
+	}
+
 	var a models.Alumni
-	err := database.DB.QueryRow(`SELECT * FROM alumni WHERE id=$1`, id).
-		Scan(&a.ID, &a.NIM, &a.Nama, &a.Jurusan, &a.Angkatan,
-			&a.TahunLulus, &a.Email, &a.NoTelepon, &a.Alamat, &a.CreatedAt, &a.UpdatedAt, &a.Fakultas)
+	err = collection.FindOne(ctx, bson.M{"_id": objID}).Decode(&a)
 	return a, err
 }
 
+// Tambah alumni baru
 func InsertAlumni(a models.Alumni) error {
-	_, err := database.DB.Exec(`INSERT INTO alumni 
-		(nim, nama, jurusan, angkatan, tahun_lulus, email, no_telepon, alamat) 
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-		a.NIM, a.Nama, a.Jurusan, a.Angkatan, a.TahunLulus,
-		a.Email, a.NoTelepon, a.Alamat)
+	collection := database.DB.Collection("alumni")
+
+	a.ID = primitive.NewObjectID()
+	a.CreatedAt = time.Now()
+	a.UpdatedAt = time.Now()
+
+	_, err := collection.InsertOne(ctx, a)
 	return err
 }
 
-func UpdateAlumni(id int, a models.Alumni) error {
-	_, err := database.DB.Exec(`UPDATE alumni SET nim=$1, nama=$2, jurusan=$3, 
-		angkatan=$4, tahun_lulus=$5, email=$6, no_telepon=$7, alamat=$8, updated_at=NOW() 
-		WHERE id=$9`,
-		a.NIM, a.Nama, a.Jurusan, a.Angkatan, a.TahunLulus,
-		a.Email, a.NoTelepon, a.Alamat, id)
+// Update alumni
+func UpdateAlumni(id string, a models.Alumni) error {
+	collection := database.DB.Collection("alumni")
+
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return fmt.Errorf("invalid ObjectID: %v", err)
+	}
+
+	update := bson.M{
+		"$set": bson.M{
+			"nim":          a.NIM,
+			"nama":         a.Nama,
+			"jurusan":      a.Jurusan,
+			"angkatan":     a.Angkatan,
+			"tahun_lulus":  a.TahunLulus,
+			"no_telepon":   a.NoTelepon,
+			"alamat":       a.Alamat,
+			"fakultas":     a.Fakultas,
+			"updated_at":   time.Now(),
+		},
+	}
+
+	_, err = collection.UpdateOne(ctx, bson.M{"_id": objID}, update)
 	return err
 }
 
-func DeleteAlumni(id int) error {
-	_, err := database.DB.Exec(`DELETE FROM alumni WHERE id=$1`, id)
+// Hapus alumni
+func DeleteAlumni(id string) error {
+	collection := database.DB.Collection("alumni")
+
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return fmt.Errorf("invalid ObjectID: %v", err)
+	}
+
+	_, err = collection.DeleteOne(ctx, bson.M{"_id": objID})
 	return err
 }
 
-func GetAlumniWithPagination(search, sortBy, order string, limit, offset int) ([]models.Alumni, error) {
-	query := fmt.Sprintf(`
-        SELECT id, nim, nama, jurusan, angkatan, tahun_lulus, email, no_telepon, alamat, fakultas, created_at, updated_at
-        FROM alumni
-        WHERE nama ILIKE $1 OR jurusan ILIKE $1 OR email ILIKE $1 OR fakultas ILIKE $1
-        ORDER BY %s %s
-        LIMIT $2 OFFSET $3
-    `, sortBy, order)
+// Ambil alumni dengan pagination + search + sort
+func GetAlumniWithPagination(search, sortBy, order string, limit, page int) ([]models.Alumni, error) {
+	collection := database.DB.Collection("alumni")
 
-	rows, err := database.DB.Query(query, "%"+search+"%", limit, offset)
+	// Filtering
+	filter := bson.M{}
+	if search != "" {
+		filter = bson.M{
+			"$or": []bson.M{
+				{"nama": bson.M{"$regex": search, "$options": "i"}},
+				{"jurusan": bson.M{"$regex": search, "$options": "i"}},
+				{"fakultas": bson.M{"$regex": search, "$options": "i"}},
+			},
+		}
+	}
+
+	// Sorting
+	sortOrder := 1
+	if order == "desc" {
+		sortOrder = -1
+	}
+	findOptions := options.Find().
+		SetSort(bson.D{{Key: sortBy, Value: sortOrder}}).
+		SetLimit(int64(limit)).
+		SetSkip(int64((page - 1) * limit))
+
+	// Query
+	cursor, err := collection.Find(ctx, filter, findOptions)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer cursor.Close(ctx)
 
 	var list []models.Alumni
-	for rows.Next() {
+	for cursor.Next(ctx) {
 		var a models.Alumni
-		rows.Scan(&a.ID, &a.NIM, &a.Nama, &a.Jurusan, &a.Angkatan,
-			&a.TahunLulus, &a.Email, &a.NoTelepon, &a.Alamat,
-			&a.Fakultas, &a.CreatedAt, &a.UpdatedAt)
+		if err := cursor.Decode(&a); err != nil {
+			return nil, err
+		}
 		list = append(list, a)
 	}
 	return list, nil
 }
 
-func CountAlumni(search string) (int, error) {
-	var total int
-	err := database.DB.QueryRow(`SELECT COUNT(*) FROM alumni WHERE nama ILIKE $1 OR jurusan ILIKE $1 OR email ILIKE $1 OR fakultas ILIKE $1`, "%"+search+"%").Scan(&total)
-	return total, err
+// Hitung total alumni (untuk pagination)
+func CountAlumni(search string) (int64, error) {
+	collection := database.DB.Collection("alumni")
+
+	filter := bson.M{}
+	if search != "" {
+		filter = bson.M{
+			"$or": []bson.M{
+				{"nama": bson.M{"$regex": search, "$options": "i"}},
+				{"jurusan": bson.M{"$regex": search, "$options": "i"}},
+				{"fakultas": bson.M{"$regex": search, "$options": "i"}},
+			},
+		}
+	}
+
+	count, err := collection.CountDocuments(ctx, filter)
+	return count, err
 }
-
-
-
+	

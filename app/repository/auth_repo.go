@@ -1,29 +1,21 @@
 package repository
 
 import (
-	"crud-alumni/database"
 	"crud-alumni/app/models"
-	"database/sql"
+	"crud-alumni/database"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
-func FindUserByUsernameOrEmail(identifier string) (*models.User, string, error) {
+
+// Ambil user berdasarkan email
+func FindUserByEmail(email string) (*models.User, error) {
+	collection := database.DB.Collection("users")
+
 	var user models.User
-	var passwordHash string
-
-	err := database.DB.QueryRow(`
-		SELECT id, username, email, password_hash, role, created_at
-		FROM users
-		WHERE username = $1 OR email = $1
-	`, identifier).Scan(
-		&user.ID, &user.Username, &user.Email, &passwordHash, &user.Role, &user.CreatedAt,
-	)
-
+	err := collection.FindOne(ctx, bson.M{"email": email}).Decode(&user)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, "", sql.ErrNoRows
-		}
-		return nil, "", err
+		return nil, err
 	}
 
-	return &user, passwordHash, nil
+	return &user, nil
 }

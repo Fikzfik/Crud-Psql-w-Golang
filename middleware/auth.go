@@ -26,12 +26,13 @@ func AuthRequired() fiber.Handler {
 		claims, err := helper.ValidateToken(tokenParts[1])
 		if err != nil {
 			return c.Status(401).JSON(fiber.Map{
-				"error": "Token tidak valid atau expired",
+				"error": "Token tidak valid atau sudah kedaluwarsa",
 			})
 		}
 
+		// Simpan ke context
 		c.Locals("user_id", claims.UserID)
-		c.Locals("username", claims.Username)
+		c.Locals("email", claims.Email)
 		c.Locals("role", claims.Role)
 
 		return c.Next()
@@ -40,8 +41,8 @@ func AuthRequired() fiber.Handler {
 
 func AdminOnly() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		role := c.Locals("role").(string)
-		if role != "admin" {
+		role, ok := c.Locals("role").(string)
+		if !ok || role != "admin" {
 			return c.Status(403).JSON(fiber.Map{
 				"error": "Akses ditolak. Hanya admin yang diizinkan",
 			})

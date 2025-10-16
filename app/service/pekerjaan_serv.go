@@ -10,33 +10,32 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// ===== HANDLER =====
+// ===== HANDLERS =====
 
 func GetPekerjaanListHandler(c *fiber.Ctx) error {
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
-	sortBy := c.Query("sortBy", "id")
+	sortBy := c.Query("sortBy", "created_at")
 	order := c.Query("order", "asc")
 	search := c.Query("search", "")
 
 	if page < 1 {
 		page = 1
 	}
-	offset := (page - 1) * limit
 
 	sortWhitelist := map[string]bool{
-		"id": true, "nama_perusahaan": true, "posisi_jabatan": true,
+		"nama_perusahaan": true, "posisi_jabatan": true,
 		"bidang_industri": true, "lokasi_kerja": true,
 		"tanggal_mulai_kerja": true, "status_pekerjaan": true, "created_at": true,
 	}
 	if !sortWhitelist[sortBy] {
-		sortBy = "id"
+		sortBy = "created_at"
 	}
 	if strings.ToLower(order) != "desc" {
 		order = "asc"
 	}
 
-	data, err := repository.GetPekerjaanWithPagination(search, sortBy, order, limit, offset)
+	data, err := repository.GetPekerjaanWithPagination(search, sortBy, order, limit, page)
 	if err != nil {
 		return helper.Response(c, 500, "Gagal ambil data pekerjaan", nil)
 	}
@@ -51,8 +50,8 @@ func GetPekerjaanListHandler(c *fiber.Ctx) error {
 		Meta: models.MetaInfo{
 			Page:   page,
 			Limit:  limit,
-			Total:  total,
-			Pages:  (total + limit - 1) / limit,
+			Total:  int(total),
+			Pages:  int((total + int64(limit) - 1) / int64(limit)),
 			SortBy: sortBy,
 			Order:  order,
 			Search: search,
@@ -62,17 +61,17 @@ func GetPekerjaanListHandler(c *fiber.Ctx) error {
 }
 
 func GetPekerjaanByIDHandler(c *fiber.Ctx) error {
-	id, _ := strconv.Atoi(c.Params("id"))
-	data, err := GetPekerjaanByID(id)
+	id := c.Params("id")
+	data, err := repository.GetPekerjaanByID(id)
 	if err != nil {
-		return helper.Response(c, 404, "Pekerjaan tidak ditemukanss", nil)
+		return helper.Response(c, 404, "Pekerjaan tidak ditemukan", nil)
 	}
 	return helper.Response(c, 200, "OK", data)
 }
 
 func GetPekerjaanByAlumniHandler(c *fiber.Ctx) error {
-	alumniID, _ := strconv.Atoi(c.Params("alumni_id"))
-	data, err := GetPekerjaanByAlumni(alumniID)
+	alumniID := c.Params("alumni_id")
+	data, err := repository.GetPekerjaanByAlumni(alumniID)
 	if err != nil {
 		return helper.Response(c, 404, "Data pekerjaan tidak ditemukan", nil)
 	}
@@ -84,152 +83,39 @@ func CreatePekerjaanHandler(c *fiber.Ctx) error {
 	if err := c.BodyParser(&p); err != nil {
 		return helper.Response(c, 400, "Input tidak valid", nil)
 	}
-	if err := CreatePekerjaan(p); err != nil {
+	if err := repository.InsertPekerjaan(p); err != nil {
 		return helper.Response(c, 400, err.Error(), nil)
 	}
 	return helper.Response(c, 201, "Pekerjaan ditambahkan", p)
 }
 
 func UpdatePekerjaanHandler(c *fiber.Ctx) error {
-	id, _ := strconv.Atoi(c.Params("id"))
+	id := c.Params("id")
 	var p models.PekerjaanAlumni
 	if err := c.BodyParser(&p); err != nil {
 		return helper.Response(c, 400, "Input tidak valid", nil)
 	}
-	if err := UpdatePekerjaan(id, p); err != nil {
+	if err := repository.UpdatePekerjaan(id, p); err != nil {
 		return helper.Response(c, 400, err.Error(), nil)
 	}
 	return helper.Response(c, 200, "Pekerjaan diupdate", p)
 }
 
-// func DeletePekerjaanHandler(c *fiber.Ctx) error {
-// 	id, _ := strconv.Atoi(c.Params("id"))
-// 	if err := DeletePekerjaan(id); err != nil {
-// 		return helper.Response(c, 500, "Gagal hapus pekerjaan", nil)
-// 	}
-// 	return helper.Response(c, 200, "Pekerjaan dihapus", nil)
-// }
-
-// Soft delete / restore handlers
-func SoftDeleteHandler(c *fiber.Ctx) error {
-	role := c.Locals("role").(string)
-	id := c.Locals("user_id").(int)
-	if err := IsDeleted(role, id); err != nil {
+func DeletePekerjaanHandler(c *fiber.Ctx) error {
+	id := c.Params("id")
+	if err := repository.DeletePekerjaan(id); err != nil {
 		return helper.Response(c, 500, "Gagal hapus pekerjaan", nil)
 	}
-	return helper.Response(c, 200, "Data dihapus", nil)
-}
-
-func TrashListHandler(c *fiber.Ctx) error {
-	role := c.Locals("role").(string)
-	id := c.Locals("user_id").(int)
-	data, err := IsAktif(role, id)
-	if err != nil {
-		return helper.Response(c, 404, "Data tidak ditemukan", nil)
-	}
-	return helper.Response(c, 200, "Data trash", data)
-}
-
-func RestoreSelfHandler(c *fiber.Ctx) error {
-	role := c.Locals("role").(string)
-	id := c.Locals("user_id").(int)
-	if err := IsRestored(role, id); err != nil {
-		return helper.Response(c, 500, "Gagal restore data", nil)
-	}
-	return helper.Response(c, 200, "Data berhasil direstore", nil)
-}
-
-func DeleteUserPekerjaanHandler(c *fiber.Ctx) error {
-	alumniID, _ := strconv.Atoi(c.Params("userid"))
-	var p models.PekerjaanAlumni
-	if err := c.BodyParser(&p); err != nil {
-		return helper.Response(c, 400, "Input tidak valid", nil)
-	}
-	data, err := Userdeleted(alumniID, p)
-	if err != nil {
-		return helper.Response(c, 500, "Gagal hapus data user lain", nil)
-	}
-	return helper.Response(c, 200, "User dihapus", data)
-}
-
-func RestoreUserPekerjaanHandler(c *fiber.Ctx) error {
-	alumniID, _ := strconv.Atoi(c.Params("userid"))
-	var p models.PekerjaanAlumni
-	if err := c.BodyParser(&p); err != nil {
-		return helper.Response(c, 400, "Input tidak valid", nil)
-	}
-	data, err := RestoredUser(alumniID, p)
-	if err != nil {
-		return helper.Response(c, 500, "Gagal restore data user lain", nil)
-	}
-	return helper.Response(c, 200, "User direstore", data)
-}
-
-func RestorePekerjaan(c *fiber.Ctx) error {
-	role := c.Locals("role").(string)
-	loginID := c.Locals("user_id").(int)
-	paramID := c.Params("idpekerjaan")
-	var targetID int
-	if paramID != "" {
-		if role != "admin" {
-			return helper.Response(c, 403, "Hanya admin yang bisa restore user lain", nil)
-		}
-		id, err := strconv.Atoi(paramID)
-		if err != nil {
-			return helper.Response(c, 400, "Parameter ID tidak valid", nil)
-		}
-		targetID = id
-	} else {
-		targetID = loginID
-	}
-
-	if err := repository.IsRestored(role, targetID); err != nil {
-		return helper.Response(c, 500, "Gagal restore data", nil)
-	}
-
-	return helper.Response(c, 200, "Data berhasil direstore", nil)
-}
-
-func SoftDeletePekerjaan(c *fiber.Ctx) error {
-	//ambil role yang login
-	role := c.Locals("role").(string)
-	//ambil id yang login
-	loginID := c.Locals("user_id").(int)
-	//ambil id dari parameter
-	paramID := c.Params("idpekerjaan")
-	//buat variable baru buat nampung nanti
-	var targetID int
-	//cek apakah ngirim parameter/ga
-	if paramID != "" {
-		//cek apakah yg login admin
-		if role != "admin" {
-			return helper.Response(c, 403, "Hanya admin yang bisa hapus user lain", nil)
-		}
-		//ubah parameter int jadi string
-		id, err := strconv.Atoi(paramID)
-		if err != nil {
-			return helper.Response(c, 400, "Parameter ID tidak valid", nil)
-		}
-		//var diisi dengan parameter
-		targetID = id
-		} else {
-		//var diisi dengan id yg login
-		targetID = loginID
-	}
-	//ke repo dengan mengirim role dan id yg login/parameter 
-	if err := repository.IsDeleted(role, targetID); err != nil {
-		return helper.Response(c, 500, "Gagal hapus data", nil)
-	}
-	return helper.Response(c, 200, "Data berhasil dihapus (soft delete)", nil)
+	return helper.Response(c, 200, "Pekerjaan dihapus", nil)
 }
 
 // ===== LOGIKA BISNIS =====
 
-func GetPekerjaanByID(id int) (models.PekerjaanAlumni, error) {
+func GetPekerjaanByID(id string) (models.PekerjaanAlumni, error) {
 	return repository.GetPekerjaanByID(id)
 }
 
-func GetPekerjaanByAlumni(alumniID int) ([]models.PekerjaanAlumni, error) {
+func GetPekerjaanByAlumni(alumniID string) ([]models.PekerjaanAlumni, error) {
 	return repository.GetPekerjaanByAlumni(alumniID)
 }
 
@@ -240,33 +126,13 @@ func CreatePekerjaan(p models.PekerjaanAlumni) error {
 	return repository.InsertPekerjaan(p)
 }
 
-func UpdatePekerjaan(id int, p models.PekerjaanAlumni) error {
+func UpdatePekerjaan(id string, p models.PekerjaanAlumni) error {
 	if p.NamaPerusahaan == "" || p.PosisiJabatan == "" {
 		return ErrInvalidData
 	}
 	return repository.UpdatePekerjaan(id, p)
 }
 
-func DeletePekerjaan(id int) error {
+func DeletePekerjaan(id string) error {
 	return repository.DeletePekerjaan(id)
-}
-
-func IsDeleted(role string, id int) error {
-	return repository.IsDeleted(role, id)
-}
-
-func IsAktif(role string, id int) ([]models.PekerjaanAlumni, error) {
-	return repository.IsAktif(role, id)
-}
-
-func IsRestored(role string, id int) error {
-	return repository.IsRestored(role, id)
-}
-
-func RestoredUser(id int, p models.PekerjaanAlumni) ([]models.PekerjaanAlumni, error) {
-	return repository.RestoredUser(id, p)
-}
-
-func Userdeleted(id int, p models.PekerjaanAlumni) ([]models.PekerjaanAlumni, error) {
-	return repository.Userdeleted(id, p)
 }

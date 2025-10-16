@@ -1,293 +1,227 @@
 package repository
 
 import (
+	"context"
 	"crud-alumni/app/models"
 	"crud-alumni/database"
-	"database/sql"
 	"fmt"
 	"time"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+var ctx = context.TODO()
+
+// Ambil semua pekerjaan
 func GetAllPekerjaan() ([]models.PekerjaanAlumni, error) {
-	rows, err := database.DB.Query(`SELECT * FROM pekerjaan_alumni ORDER BY id`)
+	collection := database.DB.Collection("pekerjaan_alumni")
+	cursor, err := collection.Find(ctx, bson.M{})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer cursor.Close(ctx)
 
 	var list []models.PekerjaanAlumni
-	for rows.Next() {
+	for cursor.Next(ctx) {
 		var p models.PekerjaanAlumni
-		rows.Scan(&p.ID, &p.AlumniID, &p.NamaPerusahaan, &p.PosisiJabatan,
-			&p.BidangIndustri, &p.LokasiKerja, &p.GajiRange,
-			&p.TanggalMulaiKerja, &p.TanggalSelesaiKerja,
-			&p.StatusPekerjaan, &p.DeskripsiPekerjaan,
-			&p.CreatedAt, &p.UpdatedAt)
+		if err := cursor.Decode(&p); err != nil {
+			return nil, err
+		}
 		list = append(list, p)
 	}
 	return list, nil
 }
 
-func GetPekerjaanByID(id int) (models.PekerjaanAlumni, error) {
+// Ambil pekerjaan berdasarkan ID
+func GetPekerjaanByID(id string) (models.PekerjaanAlumni, error) {
+	collection := database.DB.Collection("pekerjaan_alumni")
+
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return models.PekerjaanAlumni{}, fmt.Errorf("invalid ObjectID: %v", err)
+	}
+
 	var p models.PekerjaanAlumni
-	err := database.DB.QueryRow(`SELECT * FROM pekerjaan_alumni WHERE id=$1`, id).
-		Scan(&p.ID, &p.AlumniID, &p.NamaPerusahaan, &p.PosisiJabatan,
-			&p.BidangIndustri, &p.LokasiKerja, &p.GajiRange,
-			&p.TanggalMulaiKerja, &p.TanggalSelesaiKerja,
-			&p.StatusPekerjaan, &p.DeskripsiPekerjaan,
-			&p.CreatedAt, &p.UpdatedAt)
+	err = collection.FindOne(ctx, bson.M{"_id": objID}).Decode(&p)
 	return p, err
 }
 
-func RestoredUser(id int, p models.PekerjaanAlumni) ([]models.PekerjaanAlumni, error) {
-	_, err := database.DB.Exec(`UPDATE pekerjaan_alumni 
-	SET updated_at = NOW(), isdelete = true
-	WHERE alumni_id = $1`, id)
+// Ambil pekerjaan berdasarkan alumni
+func GetPekerjaanByAlumni(alumniID string) ([]models.PekerjaanAlumni, error) {
+	collection := database.DB.Collection("pekerjaan_alumni")
+
+	alumniObjID, err := primitive.ObjectIDFromHex(alumniID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid ObjectID: %v", err)
+	}
+
+	cursor, err := collection.Find(ctx, bson.M{"alumni_id": alumniObjID})
 	if err != nil {
 		return nil, err
 	}
-	rows, err := database.DB.Query(`SELECT * FROM pekerjaan_alumni WHERE alumni_id=$1 ORDER BY id`, id)
-	var list []models.PekerjaanAlumni
-	for rows.Next() {
-		var p models.PekerjaanAlumni
-		rows.Scan(&p.ID, &p.AlumniID, &p.NamaPerusahaan, &p.PosisiJabatan,
-			&p.BidangIndustri, &p.LokasiKerja, &p.GajiRange,
-			&p.TanggalMulaiKerja, &p.TanggalSelesaiKerja,
-			&p.StatusPekerjaan, &p.DeskripsiPekerjaan,
-			&p.CreatedAt, &p.UpdatedAt, &p.IsDeleted)
-		list = append(list, p)
-	}
-	return list, nil
-}
-
-func Userdeleted(id int, p models.PekerjaanAlumni) ([]models.PekerjaanAlumni, error) {
-	_, err := database.DB.Exec(`UPDATE pekerjaan_alumni 
-	SET updated_at = NOW(), isdelete = false
-	WHERE alumni_id = $1`, id)
-	if err != nil {
-		return nil, err
-	}
-	rows, err := database.DB.Query(`SELECT * FROM pekerjaan_alumni WHERE alumni_id=$1 ORDER BY id`, id)
-	var list []models.PekerjaanAlumni
-	for rows.Next() {
-		var p models.PekerjaanAlumni
-		rows.Scan(&p.ID, &p.AlumniID, &p.NamaPerusahaan, &p.PosisiJabatan,
-			&p.BidangIndustri, &p.LokasiKerja, &p.GajiRange,
-			&p.TanggalMulaiKerja, &p.TanggalSelesaiKerja,
-			&p.StatusPekerjaan, &p.DeskripsiPekerjaan,
-			&p.CreatedAt, &p.UpdatedAt, &p.IsDeleted)
-		list = append(list, p)
-	}
-	return list, nil
-}
-
-func IsAktif(role string, id int) ([]models.PekerjaanAlumni, error) {
-	var (
-		rows     *sql.Rows
-		err      error
-		alumniID int
-	)
-
-	fmt.Println("User ID:", id)
-
-	// Ambil alumni_id dari tabel users kalau role bukan admin
-	if role != "admin" {
-		err = database.DB.QueryRow(`SELECT alumni_id FROM users WHERE id=$1`, id).Scan(&alumniID)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, fmt.Errorf("user dengan id %d tidak ditemukan", id)
-			}
-			return nil, fmt.Errorf("gagal ambil alumni_id: %v", err)
-		}
-		fmt.Println("Alumni ID:", alumniID)
-	}
-
-	queryAdmin := `
-	SELECT id, alumni_id, nama_perusahaan, posisi_jabatan, bidang_industri, 
-	       lokasi_kerja, gaji_range, tanggal_mulai_kerja, tanggal_selesai_kerja, 
-	       status_pekerjaan, deskripsi_pekerjaan, created_at, updated_at, isdelete 
-	FROM pekerjaan_alumni 
-	WHERE isdelete = true
-`
-
-	queryUser := queryAdmin + ` AND alumni_id = $1`
-
-	// Jalankan query
-	if role == "admin" {
-		rows, err = database.DB.Query(queryAdmin)
-	} else {
-		rows, err = database.DB.Query(queryUser, alumniID)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("query error: %v", err)
-	}
-	defer rows.Close()
+	defer cursor.Close(ctx)
 
 	var list []models.PekerjaanAlumni
-	for rows.Next() {
+	for cursor.Next(ctx) {
 		var p models.PekerjaanAlumni
-		if err := rows.Scan(
-			&p.ID, &p.AlumniID, &p.NamaPerusahaan, &p.PosisiJabatan,
-			&p.BidangIndustri, &p.LokasiKerja, &p.GajiRange,
-			&p.TanggalMulaiKerja, &p.TanggalSelesaiKerja,
-			&p.StatusPekerjaan, &p.DeskripsiPekerjaan,
-			&p.CreatedAt, &p.UpdatedAt, &p.IsDeleted,
-		); err != nil {
-			return nil, fmt.Errorf("scan error: %v", err)
+		if err := cursor.Decode(&p); err != nil {
+			return nil, err
 		}
 		list = append(list, p)
 	}
-
-	if len(list) == 0 {
-		return []models.PekerjaanAlumni{}, nil
-	}
-
 	return list, nil
 }
 
-func GetPekerjaanByAlumni(alumniID int) ([]models.PekerjaanAlumni, error) {
-	rows, err := database.DB.Query(`SELECT * FROM pekerjaan_alumni WHERE alumni_id=$1 ORDER BY id`, alumniID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var list []models.PekerjaanAlumni
-	for rows.Next() {
-		var p models.PekerjaanAlumni
-		rows.Scan(&p.ID, &p.AlumniID, &p.NamaPerusahaan, &p.PosisiJabatan,
-			&p.BidangIndustri, &p.LokasiKerja, &p.GajiRange,
-			&p.TanggalMulaiKerja, &p.TanggalSelesaiKerja,
-			&p.StatusPekerjaan, &p.DeskripsiPekerjaan,
-			&p.CreatedAt, &p.UpdatedAt)
-		list = append(list, p)
-	}
-	return list, nil
-}
-
+// Tambah pekerjaan baru
 func InsertPekerjaan(p models.PekerjaanAlumni) error {
-	now := time.Now()
-	_, err := database.DB.Exec(`
-        INSERT INTO pekerjaan_alumni 
-        (alumni_id, nama_perusahaan, posisi_jabatan, bidang_industri,
-         lokasi_kerja, gaji_range, tanggal_mulai_kerja, tanggal_selesai_kerja,
-         status_pekerjaan, deskripsi_pekerjaan, created_at, updated_at)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-		p.AlumniID, p.NamaPerusahaan, p.PosisiJabatan, p.BidangIndustri,
-		p.LokasiKerja, p.GajiRange, p.TanggalMulaiKerja, p.TanggalSelesaiKerja,
-		p.StatusPekerjaan, p.DeskripsiPekerjaan, now, now,
-	)
+	collection := database.DB.Collection("pekerjaan_alumni")
+
+	p.ID = primitive.NewObjectID()
+	p.CreatedAt = time.Now()
+	p.UpdatedAt = time.Now()
+	p.IsDeleted = false
+
+	_, err := collection.InsertOne(ctx, p)
 	return err
 }
 
-func UpdatePekerjaan(id int, p models.PekerjaanAlumni) error {
-	_, err := database.DB.Exec(`UPDATE pekerjaan_alumni 
-		SET nama_perusahaan=$1, posisi_jabatan=$2, bidang_industri=$3, lokasi_kerja=$4, 
-		    gaji_range=$5, tanggal_mulai_kerja=$6, tanggal_selesai_kerja=$7, 
-		    status_pekerjaan=$8, deskripsi_pekerjaan=$9, updated_at=NOW() 
-		WHERE id=$10`,
-		p.NamaPerusahaan, p.PosisiJabatan, p.BidangIndustri, p.LokasiKerja,
-		p.GajiRange, p.TanggalMulaiKerja, p.TanggalSelesaiKerja,
-		p.StatusPekerjaan, p.DeskripsiPekerjaan, id)
+// Update pekerjaan
+func UpdatePekerjaan(id string, p models.PekerjaanAlumni) error {
+	collection := database.DB.Collection("pekerjaan_alumni")
+
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return fmt.Errorf("invalid ObjectID: %v", err)
+	}
+
+	update := bson.M{
+		"$set": bson.M{
+			"nama_perusahaan":      p.NamaPerusahaan,
+			"posisi_jabatan":       p.PosisiJabatan,
+			"bidang_industri":      p.BidangIndustri,
+			"lokasi_kerja":         p.LokasiKerja,
+			"gaji_range":           p.GajiRange,
+			"tanggal_mulai_kerja":  p.TanggalMulaiKerja,
+			"tanggal_selesai_kerja": p.TanggalSelesaiKerja,
+			"status_pekerjaan":     p.StatusPekerjaan,
+			"deskripsi_pekerjaan":  p.DeskripsiPekerjaan,
+			"updated_at":           time.Now(),
+		},
+	}
+
+	_, err = collection.UpdateOne(ctx, bson.M{"_id": objID}, update)
 	return err
 }
 
-func DeletePekerjaan(id int) error {
-	_, err := database.DB.Exec(`DELETE FROM pekerjaan_alumni WHERE id=$1`, id)
+// Soft delete pekerjaan
+func SoftDeletePekerjaan(id string, isDelete bool) error {
+	collection := database.DB.Collection("pekerjaan_alumni")
+
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return fmt.Errorf("invalid ObjectID: %v", err)
+	}
+
+	update := bson.M{"$set": bson.M{"isdelete": isDelete, "updated_at": time.Now()}}
+	_, err = collection.UpdateOne(ctx, bson.M{"_id": objID}, update)
 	return err
 }
 
-func GetPekerjaanWithPagination(search, sortBy, order string, limit, offset int) ([]models.PekerjaanAlumni, error) {
-	query := fmt.Sprintf(`
-		SELECT id, alumni_id, nama_perusahaan, posisi_jabatan, bidang_industri, 
-		       lokasi_kerja, gaji_range, tanggal_mulai_kerja, tanggal_selesai_kerja, 
-		       status_pekerjaan, deskripsi_pekerjaan, created_at, updated_at
-		FROM pekerjaan_alumni
-		WHERE nama_perusahaan ILIKE $1 
-		   OR posisi_jabatan ILIKE $1 
-		   OR bidang_industri ILIKE $1 
-		   OR lokasi_kerja ILIKE $1
-		ORDER BY %s %s
-		LIMIT $2 OFFSET $3
-	`, sortBy, order)
+// Hapus permanen pekerjaan
+func DeletePekerjaan(id string) error {
+	collection := database.DB.Collection("pekerjaan_alumni")
 
-	rows, err := database.DB.Query(query, "%"+search+"%", limit, offset)
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return fmt.Errorf("invalid ObjectID: %v", err)
+	}
+
+	_, err = collection.DeleteOne(ctx, bson.M{"_id": objID})
+	return err
+}
+
+// Ambil pekerjaan aktif (isdelete = false)
+func GetPekerjaanAktif() ([]models.PekerjaanAlumni, error) {
+	collection := database.DB.Collection("pekerjaan_alumni")
+
+	cursor, err := collection.Find(ctx, bson.M{"isdelete": false})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer cursor.Close(ctx)
 
 	var list []models.PekerjaanAlumni
-	for rows.Next() {
+	for cursor.Next(ctx) {
 		var p models.PekerjaanAlumni
-		rows.Scan(
-			&p.ID, &p.AlumniID, &p.NamaPerusahaan, &p.PosisiJabatan,
-			&p.BidangIndustri, &p.LokasiKerja, &p.GajiRange,
-			&p.TanggalMulaiKerja, &p.TanggalSelesaiKerja, &p.StatusPekerjaan,
-			&p.DeskripsiPekerjaan, &p.CreatedAt, &p.UpdatedAt,
-		)
+		if err := cursor.Decode(&p); err != nil {
+			return nil, err
+		}
 		list = append(list, p)
 	}
 	return list, nil
 }
 
-func CountPekerjaan(search string) (int, error) {
-	var total int
-	err := database.DB.QueryRow(`
-		SELECT COUNT(*) FROM pekerjaan_alumni 
-		WHERE nama_perusahaan ILIKE $1 
-		   OR posisi_jabatan ILIKE $1 
-		   OR bidang_industri ILIKE $1 
-		   OR lokasi_kerja ILIKE $1`,
-		"%"+search+"%",
-	).Scan(&total)
-	return total, err
-}
+// Ambil dengan pagination
+func GetPekerjaanWithPagination(search, sortBy, order string, limit, page int) ([]models.PekerjaanAlumni, error) {
+	collection := database.DB.Collection("pekerjaan_alumni")
 
-func IsDeleted(role string, id int) error {
-	var alumniID int
-	//cek admin/bukan
-	if role == "admin" {
-		//mengisi id dengan parameter user lain
-		alumniID = id
-		} else {
-			//mengambil id diri sendiri
-			err := database.DB.QueryRow(`SELECT alumni_id FROM users WHERE id=$1`, id).Scan(&alumniID)
-			if err != nil {
-			return fmt.Errorf("gagal ambil alumni_id: %w", err)
-		}
-	}
-	
-	//mengganti soft delete dari id yg login/parameter
-	_, err := database.DB.Exec(`
-		UPDATE pekerjaan_alumni 
-		SET updated_at = NOW(), isdelete = true
-		WHERE id= $1`, alumniID)
-	if err != nil {
-		return fmt.Errorf("gagal update pekerjaan_alumni: %w", err)
-	}
-	return nil
-}
-
-func IsRestored(role string, id int) error {
-	var alumniID int
-
-	if role == "admin" {
-		alumniID = id
-	} else {
-		err := database.DB.QueryRow(`SELECT alumni_id FROM users WHERE id=$1`, id).Scan(&alumniID)
-		if err != nil {
-			return fmt.Errorf("gagal ambil alumni_id: %w", err)
+	filter := bson.M{}
+	if search != "" {
+		filter = bson.M{
+			"$or": []bson.M{
+				{"nama_perusahaan": bson.M{"$regex": search, "$options": "i"}},
+				{"posisi_jabatan": bson.M{"$regex": search, "$options": "i"}},
+				{"bidang_industri": bson.M{"$regex": search, "$options": "i"}},
+				{"lokasi_kerja": bson.M{"$regex": search, "$options": "i"}},
+			},
 		}
 	}
 
-	_, err := database.DB.Exec(`
-		UPDATE pekerjaan_alumni 
-		SET updated_at = NOW(), isdelete = false
-		WHERE id = $1`, alumniID)
-	if err != nil {
-		return fmt.Errorf("gagal update pekerjaan_alumni: %w", err)
+	sortOrder := 1
+	if order == "desc" {
+		sortOrder = -1
 	}
-	return nil
+
+	opts := options.Find().
+		SetSort(bson.D{{Key: sortBy, Value: sortOrder}}).
+		SetLimit(int64(limit)).
+		SetSkip(int64((page - 1) * limit))
+
+	cursor, err := collection.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var list []models.PekerjaanAlumni
+	for cursor.Next(ctx) {
+		var p models.PekerjaanAlumni
+		if err := cursor.Decode(&p); err != nil {
+			return nil, err
+		}
+		list = append(list, p)
+	}
+	return list, nil
 }
 
+// Hitung total pekerjaan (untuk pagination)
+func CountPekerjaan(search string) (int64, error) {
+	collection := database.DB.Collection("pekerjaan_alumni")
+
+	filter := bson.M{}
+	if search != "" {
+		filter = bson.M{
+			"$or": []bson.M{
+				{"nama_perusahaan": bson.M{"$regex": search, "$options": "i"}},
+				{"posisi_jabatan": bson.M{"$regex": search, "$options": "i"}},
+				{"bidang_industri": bson.M{"$regex": search, "$options": "i"}},
+				{"lokasi_kerja": bson.M{"$regex": search, "$options": "i"}},
+			},
+		}
+	}
+
+	count, err := collection.CountDocuments(ctx, filter)
+	return count, err
+}
