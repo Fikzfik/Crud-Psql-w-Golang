@@ -12,7 +12,7 @@ import (
 
 // ===== HANDLERS =====
 
-func GetPekerjaanListHandler(c *fiber.Ctx) error {
+func GetPekerjaanList(c *fiber.Ctx) error {
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
 	sortBy := c.Query("sortBy", "created_at")
@@ -60,7 +60,7 @@ func GetPekerjaanListHandler(c *fiber.Ctx) error {
 	return c.JSON(response)
 }
 
-func GetPekerjaanByIDHandler(c *fiber.Ctx) error {
+func GetPekerjaanByID(c *fiber.Ctx) error {
 	id := c.Params("id")
 	data, err := repository.GetPekerjaanByID(id)
 	if err != nil {
@@ -69,7 +69,7 @@ func GetPekerjaanByIDHandler(c *fiber.Ctx) error {
 	return helper.Response(c, 200, "OK", data)
 }
 
-func GetPekerjaanByAlumniHandler(c *fiber.Ctx) error {
+func GetPekerjaanByAlumni(c *fiber.Ctx) error {
 	alumniID := c.Params("alumni_id")
 	data, err := repository.GetPekerjaanByAlumni(alumniID)
 	if err != nil {
@@ -78,7 +78,7 @@ func GetPekerjaanByAlumniHandler(c *fiber.Ctx) error {
 	return helper.Response(c, 200, "OK", data)
 }
 
-func CreatePekerjaanHandler(c *fiber.Ctx) error {
+func CreatePekerjaan(c *fiber.Ctx) error {
 	var p models.PekerjaanAlumni
 	if err := c.BodyParser(&p); err != nil {
 		return helper.Response(c, 400, "Input tidak valid", nil)
@@ -89,19 +89,25 @@ func CreatePekerjaanHandler(c *fiber.Ctx) error {
 	return helper.Response(c, 201, "Pekerjaan ditambahkan", p)
 }
 
-func UpdatePekerjaanHandler(c *fiber.Ctx) error {
+func UpdatePekerjaan(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var p models.PekerjaanAlumni
+
 	if err := c.BodyParser(&p); err != nil {
 		return helper.Response(c, 400, "Input tidak valid", nil)
 	}
-	if err := repository.UpdatePekerjaan(id, p); err != nil {
+
+	// 🔹 Update dan ambil ulang data dari DB
+	updated, err := repository.UpdatePekerjaan(id, p)
+	if err != nil {
 		return helper.Response(c, 400, err.Error(), nil)
 	}
-	return helper.Response(c, 200, "Pekerjaan diupdate", p)
+
+	// 🔹 Kembalikan hasilnya
+	return helper.Response(c, 200, "Pekerjaan diupdate", updated)
 }
 
-func DeletePekerjaanHandler(c *fiber.Ctx) error {
+func DeletePekerjaan(c *fiber.Ctx) error {
 	id := c.Params("id")
 	if err := repository.DeletePekerjaan(id); err != nil {
 		return helper.Response(c, 500, "Gagal hapus pekerjaan", nil)
@@ -111,28 +117,28 @@ func DeletePekerjaanHandler(c *fiber.Ctx) error {
 
 // ===== LOGIKA BISNIS =====
 
-func GetPekerjaanByID(id string) (models.PekerjaanAlumni, error) {
+func GetPekerjaanByIDs(id string) (models.PekerjaanAlumni, error) {
 	return repository.GetPekerjaanByID(id)
 }
 
-func GetPekerjaanByAlumni(alumniID string) ([]models.PekerjaanAlumni, error) {
+func GetPekerjaanByAlumnis(alumniID string) ([]models.PekerjaanAlumni, error) {
 	return repository.GetPekerjaanByAlumni(alumniID)
 }
 
-func CreatePekerjaan(p models.PekerjaanAlumni) error {
+func CreatePekerjaans(p models.PekerjaanAlumni) error {
 	if p.NamaPerusahaan == "" || p.PosisiJabatan == "" {
 		return ErrInvalidData
 	}
 	return repository.InsertPekerjaan(p)
 }
 
-func UpdatePekerjaan(id string, p models.PekerjaanAlumni) error {
-	if p.NamaPerusahaan == "" || p.PosisiJabatan == "" {
-		return ErrInvalidData
-	}
-	return repository.UpdatePekerjaan(id, p)
-}
+// func UpdatePekerjaans(id string, p models.PekerjaanAlumni) error {
+// 	if p.NamaPerusahaan == "" || p.PosisiJabatan == "" {
+// 		return ErrInvalidData
+// 	}
+// 	return repository.UpdatePekerjaan(id, p)
+// }
 
-func DeletePekerjaan(id string) error {
+func DeletePekerjaans(id string) error {
 	return repository.DeletePekerjaan(id)
 }

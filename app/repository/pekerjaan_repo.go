@@ -88,7 +88,49 @@ func InsertPekerjaan(p models.PekerjaanAlumni) error {
 }
 
 // Update pekerjaan
-func UpdatePekerjaan(id string, p models.PekerjaanAlumni) error {
+func UpdatePekerjaan(id string, p models.PekerjaanAlumni) (models.PekerjaanAlumni, error) {
+	collection := database.DB.Collection("pekerjaan_alumni")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return models.PekerjaanAlumni{}, fmt.Errorf("invalid ObjectID: %v", err)
+	}
+
+	update := bson.M{
+		"$set": bson.M{
+			"nama_perusahaan":       p.NamaPerusahaan,
+			"posisi_jabatan":        p.PosisiJabatan,
+			"bidang_industri":       p.BidangIndustri,
+			"lokasi_kerja":          p.LokasiKerja,
+			"gaji_range":            p.GajiRange,
+			"tanggal_mulai_kerja":   p.TanggalMulaiKerja,
+			"tanggal_selesai_kerja": p.TanggalSelesaiKerja,
+			"status_pekerjaan":      p.StatusPekerjaan,
+			"deskripsi_pekerjaan":   p.DeskripsiPekerjaan,
+			"updated_at":            time.Now(),
+		},
+	}
+
+	_, err = collection.UpdateOne(ctx, bson.M{"_id": objID}, update)
+	if err != nil {
+		return models.PekerjaanAlumni{}, err
+	}
+
+	// 🔥 Ambil ulang dokumen yang baru diupdate
+	var updated models.PekerjaanAlumni
+	err = collection.FindOne(ctx, bson.M{"_id": objID}).Decode(&updated)
+	if err != nil {
+		return models.PekerjaanAlumni{}, err
+	}
+
+	return updated, nil
+}
+
+
+// Hapus permanen pekerjaan
+func DeletePekerjaan(id string) error {
 	collection := database.DB.Collection("pekerjaan_alumni")
 
 	objID, err := primitive.ObjectIDFromHex(id)
@@ -96,25 +138,9 @@ func UpdatePekerjaan(id string, p models.PekerjaanAlumni) error {
 		return fmt.Errorf("invalid ObjectID: %v", err)
 	}
 
-	update := bson.M{
-		"$set": bson.M{
-			"nama_perusahaan":      p.NamaPerusahaan,
-			"posisi_jabatan":       p.PosisiJabatan,
-			"bidang_industri":      p.BidangIndustri,
-			"lokasi_kerja":         p.LokasiKerja,
-			"gaji_range":           p.GajiRange,
-			"tanggal_mulai_kerja":  p.TanggalMulaiKerja,
-			"tanggal_selesai_kerja": p.TanggalSelesaiKerja,
-			"status_pekerjaan":     p.StatusPekerjaan,
-			"deskripsi_pekerjaan":  p.DeskripsiPekerjaan,
-			"updated_at":           time.Now(),
-		},
-	}
-
-	_, err = collection.UpdateOne(ctx, bson.M{"_id": objID}, update)
+	_, err = collection.DeleteOne(ctx, bson.M{"_id": objID})
 	return err
 }
-
 // Soft delete pekerjaan
 func SoftDeletePekerjaan(id string, isDelete bool) error {
 	collection := database.DB.Collection("pekerjaan_alumni")
@@ -129,18 +155,6 @@ func SoftDeletePekerjaan(id string, isDelete bool) error {
 	return err
 }
 
-// Hapus permanen pekerjaan
-func DeletePekerjaan(id string) error {
-	collection := database.DB.Collection("pekerjaan_alumni")
-
-	objID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return fmt.Errorf("invalid ObjectID: %v", err)
-	}
-
-	_, err = collection.DeleteOne(ctx, bson.M{"_id": objID})
-	return err
-}
 
 // Ambil pekerjaan aktif (isdelete = false)
 func GetPekerjaanAktif() ([]models.PekerjaanAlumni, error) {
