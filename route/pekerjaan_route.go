@@ -11,6 +11,7 @@ func RegisterPekerjaanRoutes(api fiber.Router) {
 	pekerjaan := api.Group("/pekerjaan", middleware.AuthRequired())
 
 	pekerjaan.Get("/", service.GetPekerjaanList)
+	pekerjaan.Get("/all", service.GetAllPekerjaan)
 	pekerjaan.Get("/:id", service.GetPekerjaanByID)
 	pekerjaan.Get("/alumni/:alumni_id", middleware.AdminOnly(), service.GetPekerjaanByAlumni)
 	

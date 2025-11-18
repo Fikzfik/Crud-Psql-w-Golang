@@ -8,10 +8,21 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // ===== HANDLERS =====
-
+// DeletePekerjaan godoc
+// @Summary Menghapus data pekerjaan
+// @Description Menghapus pekerjaan alumni berdasarkan ID
+// @Tags Pekerjaan
+// @Accept json
+// @Produce json
+// @Param id path string true "ID Pekerjaan"
+// @Security BearerAuth
+// @Success 200 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /pekerjaan/{id} [delete]
 func GetPekerjaanList(c *fiber.Ctx) error {
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
@@ -60,6 +71,19 @@ func GetPekerjaanList(c *fiber.Ctx) error {
 	return c.JSON(response)
 }
 
+// GetPekerjaanByID godoc
+// @Summary Mendapatkan data pekerjaan berdasarkan ID
+// @Description Mengambil detail pekerjaan berdasarkan ID yang diberikan
+// @Tags Pekerjaan
+// @Accept json
+// @Produce json
+// @Param id path string true "ID Pekerjaan"
+// @Security BearerAuth
+// @Success 200 {object} models.PekerjaanAlumni
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /pekerjaan/{id} [get]
+
 func GetPekerjaanByID(c *fiber.Ctx) error {
 	id := c.Params("id")
 	data, err := repository.GetPekerjaanByID(id)
@@ -69,6 +93,35 @@ func GetPekerjaanByID(c *fiber.Ctx) error {
 	return helper.Response(c, 200, "OK", data)
 }
 
+// GetAllPekerjaan godoc
+// @Summary      Mendapatkan semua data pekerjaan
+// @Description  Mengambil seluruh data pekerjaan dari database tanpa pagination atau filter
+// @Tags         Pekerjaan
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {array}   models.PekerjaanAlumni  "Daftar seluruh Pekerjaan Alumni"
+// @Failure      404  {object}  map[string]interface{} "Data pekerjaan tidak ditemukan"
+// @Router       /pekerjaan/all [get]
+func GetAllPekerjaan(c *fiber.Ctx) error {
+	id := c.Params("id")
+	data, err := repository.GetPekerjaanByID(id)
+	if err != nil {
+		return helper.Response(c, 404, "Pekerjaan tidak ditemukan", nil)
+	}
+	return helper.Response(c, 200, "OK", data)
+}
+// GetPekerjaanByAlumni godoc
+// @Summary Mendapatkan data pekerjaan berdasarkan ID alumni
+// @Description Mengambil semua pekerjaan yang dimiliki oleh satu alumni tertentu
+// @Tags Pekerjaan
+// @Accept json
+// @Produce json
+// @Param alumni_id path string true "ID Alumni"
+// @Security BearerAuth
+// @Success 200 {array} models.PekerjaanAlumni
+// @Failure 404 {object} map[string]interface{}
+// @Router /pekerjaan/alumni/{alumni_id} [get]
 func GetPekerjaanByAlumni(c *fiber.Ctx) error {
 	alumniID := c.Params("alumni_id")
 	data, err := repository.GetPekerjaanByAlumni(alumniID)
@@ -78,17 +131,50 @@ func GetPekerjaanByAlumni(c *fiber.Ctx) error {
 	return helper.Response(c, 200, "OK", data)
 }
 
+// CreatePekerjaan godoc
+// @Summary Menambahkan data pekerjaan baru
+// @Description Menambahkan data pekerjaan alumni baru ke database
+// @Tags Pekerjaan
+// @Accept json
+// @Produce json
+// @Param pekerjaan body models.PekerjaanAlumni true "Data pekerjaan"
+// @Security BearerAuth
+// @Success 201 {object} models.PekerjaanAlumni
+// @Failure 400 {object} map[string]interface{}
+// @Router /pekerjaan [post]
 func CreatePekerjaan(c *fiber.Ctx) error {
 	var p models.PekerjaanAlumni
 	if err := c.BodyParser(&p); err != nil {
 		return helper.Response(c, 400, "Input tidak valid", nil)
 	}
+
+	// Convert alumni_id string → ObjectID
+	alumniID, err := primitive.ObjectIDFromHex(p.AlumniID.Hex())
+	if err != nil {
+		return helper.Response(c, 400, "alumni_id tidak valid", nil)
+	}
+	p.AlumniID = alumniID
+
 	if err := repository.InsertPekerjaan(p); err != nil {
 		return helper.Response(c, 400, err.Error(), nil)
 	}
+
 	return helper.Response(c, 201, "Pekerjaan ditambahkan", p)
 }
 
+
+// UpdatePekerjaan godoc
+// @Summary Update data pekerjaan alumni
+// @Description Mengupdate data pekerjaan berdasarkan ID
+// @Tags Pekerjaan
+// @Accept json
+// @Produce json
+// @Param id path string true "ID Pekerjaan"
+// @Param pekerjaan body models.PekerjaanAlumni true "Data pekerjaan"
+// @Security BearerAuth
+// @Success 200 {object} models.PekerjaanAlumni
+// @Failure 400 {object} map[string]interface{}
+// @Router /pekerjaan/{id} [put]
 func UpdatePekerjaan(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var p models.PekerjaanAlumni
@@ -107,6 +193,17 @@ func UpdatePekerjaan(c *fiber.Ctx) error {
 	return helper.Response(c, 200, "Pekerjaan diupdate", updated)
 }
 
+// DeletePekerjaan godoc
+// @Summary Menghapus data pekerjaan
+// @Description Menghapus pekerjaan alumni berdasarkan ID
+// @Tags Pekerjaan
+// @Accept json
+// @Produce json
+// @Param id path string true "ID Pekerjaan"
+// @Security BearerAuth
+// @Success 200 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /pekerjaan/{id} [delete]
 func DeletePekerjaan(c *fiber.Ctx) error {
 	id := c.Params("id")
 	if err := repository.DeletePekerjaan(id); err != nil {

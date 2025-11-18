@@ -15,6 +15,20 @@ import (
 )
 
 // ===== Upload Foto =====
+// UploadFoto godoc
+// @Summary Upload foto pengguna
+// @Description Upload foto profil untuk user. Hanya admin bisa upload foto milik user lain.
+// @Tags Upload
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param foto formData file true "File foto (JPEG, JPG, PNG, max 1MB)"
+// @Param user_id formData string false "ID user (opsional, hanya admin boleh isi)"
+// @Success 201 {object} models.FileResponse
+// @Failure 400 {object} map[string]interface{} "Request tidak valid"
+// @Failure 403 {object} map[string]interface{} "Tidak diizinkan upload user lain"
+// @Failure 500 {object} map[string]interface{} "Gagal menyimpan file atau metadata"
+// @Router /foto/upload [post]
 func UploadFoto(c *fiber.Ctx) error {
 	form, err := c.MultipartForm()
 	fmt.Println("DEBUG FORM:", form, err)
@@ -110,6 +124,20 @@ func UploadFoto(c *fiber.Ctx) error {
 }
 
 // ===== Upload Sertifikat =====
+// UploadSertifikat godoc
+// @Summary Upload sertifikat pengguna
+// @Description Upload file sertifikat dalam format PDF (hanya admin bisa upload milik user lain)
+// @Tags Upload
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param sertifikat formData file true "File sertifikat (PDF, max 2MB)"
+// @Param user_id formData string false "ID user (opsional, hanya admin boleh isi)"
+// @Success 201 {object} models.FileResponse
+// @Failure 400 {object} map[string]interface{} "Request tidak valid"
+// @Failure 403 {object} map[string]interface{} "Tidak diizinkan upload user lain"
+// @Failure 500 {object} map[string]interface{} "Gagal menyimpan file atau metadata"
+// @Router /sertifikat/upload [post]
 func UploadSertifikat(c *fiber.Ctx) error {
 	fileHeader, err := c.FormFile("sertifikat")
 	if err != nil {

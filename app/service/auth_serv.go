@@ -11,6 +11,16 @@ import (
 
 // ===== HANDLERS =====
 
+// @Summary Login user
+// @Description Login dengan email dan password untuk mendapatkan token JWT
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body models.LoginRequest true "Data login (email & password)"
+// @Success 200 {object} models.LoginResponse
+// @Failure 400 {object} map[string]interface{} "Request body tidak valid"
+// @Failure 401 {object} map[string]interface{} "Email atau password salah"
+// @Router /login [post]
 func LoginHandler(c *fiber.Ctx) error {
 	var req models.LoginRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -24,6 +34,14 @@ func LoginHandler(c *fiber.Ctx) error {
 	return helper.Response(c, 200, "Login berhasil", resp)
 }
 
+// @Summary Mendapatkan profil user yang sedang login
+// @Description Mengambil data profil berdasarkan token JWT yang dikirim di header Authorization
+// @Tags Auth
+// @Security BearerAuth
+// @Produce json
+// @Success 200 {object} map[string]interface{} "Profile berhasil diambil"
+// @Failure 401 {object} map[string]interface{} "Token tidak valid atau tidak ada"
+// @Router /profile [get]
 func ProfileHandler(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(string)
 	email := c.Locals("email").(string)

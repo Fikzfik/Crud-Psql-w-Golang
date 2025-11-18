@@ -10,11 +10,11 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-// ===== Foto Repository =====
+// ===== Repository Gabungan (Collection: files) =====
 
+// InsertFoto - menyimpan data foto ke collection files
 func InsertFoto(f models.File) error {
-	println("test")
-	collection := database.DB.Collection("foto")
+	collection := database.DB.Collection("files")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -25,12 +25,16 @@ func InsertFoto(f models.File) error {
 	return err
 }
 
+// GetAllFoto - mengambil semua data file yang bertipe foto
 func GetAllFoto() ([]models.File, error) {
-	collection := database.DB.Collection("foto")
+	collection := database.DB.Collection("files")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cursor, err := collection.Find(ctx, bson.M{})
+	// hanya ambil file bertipe image
+	filter := bson.M{"file_type": bson.M{"$regex": "^image/"}}
+
+	cursor, err := collection.Find(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +52,7 @@ func GetAllFoto() ([]models.File, error) {
 }
 
 func GetFotoByID(id string) (models.File, error) {
-	collection := database.DB.Collection("foto")
+	collection := database.DB.Collection("files")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -58,12 +62,12 @@ func GetFotoByID(id string) (models.File, error) {
 	}
 
 	var f models.File
-	err = collection.FindOne(ctx, bson.M{"_id": objID}).Decode(&f)
+	err = collection.FindOne(ctx, bson.M{"_id": objID, "file_type": bson.M{"$regex": "^image/"}}).Decode(&f)
 	return f, err
 }
 
 func DeleteFoto(id string) error {
-	collection := database.DB.Collection("foto")
+	collection := database.DB.Collection("files")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -72,14 +76,14 @@ func DeleteFoto(id string) error {
 		return err
 	}
 
-	_, err = collection.DeleteOne(ctx, bson.M{"_id": objID})
+	_, err = collection.DeleteOne(ctx, bson.M{"_id": objID, "file_type": bson.M{"$regex": "^image/"}})
 	return err
 }
 
-// ===== Sertifikat Repository =====
+// ===== Sertifikat (tetap pakai fungsi terpisah tapi 1 collection) =====
 
 func InsertSertifikat(s models.File) error {
-	collection := database.DB.Collection("sertifikat")
+	collection := database.DB.Collection("files")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -91,11 +95,14 @@ func InsertSertifikat(s models.File) error {
 }
 
 func GetAllSertifikat() ([]models.File, error) {
-	collection := database.DB.Collection("sertifikat")
+	collection := database.DB.Collection("files")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cursor, err := collection.Find(ctx, bson.M{})
+	// hanya ambil file bertipe PDF
+	filter := bson.M{"file_type": "application/pdf"}
+
+	cursor, err := collection.Find(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +120,7 @@ func GetAllSertifikat() ([]models.File, error) {
 }
 
 func GetSertifikatByID(id string) (models.File, error) {
-	collection := database.DB.Collection("sertifikat")
+	collection := database.DB.Collection("files")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -123,12 +130,12 @@ func GetSertifikatByID(id string) (models.File, error) {
 	}
 
 	var s models.File
-	err = collection.FindOne(ctx, bson.M{"_id": objID}).Decode(&s)
+	err = collection.FindOne(ctx, bson.M{"_id": objID, "file_type": "application/pdf"}).Decode(&s)
 	return s, err
 }
 
 func DeleteSertifikat(id string) error {
-	collection := database.DB.Collection("sertifikat")
+	collection := database.DB.Collection("files")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -137,6 +144,6 @@ func DeleteSertifikat(id string) error {
 		return err
 	}
 
-	_, err = collection.DeleteOne(ctx, bson.M{"_id": objID})
+	_, err = collection.DeleteOne(ctx, bson.M{"_id": objID, "file_type": "application/pdf"})
 	return err
 }
