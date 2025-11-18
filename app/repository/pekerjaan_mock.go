@@ -5,6 +5,14 @@ import (
 	"errors"
 )
 
+type PekerjaanRepository interface {
+	GetPekerjaanByID(id string) (models.PekerjaanAlumni, error)
+	GetPekerjaanByAlumni(alumniID string) ([]models.PekerjaanAlumni, error)
+	InsertPekerjaan(p models.PekerjaanAlumni) error
+	UpdatePekerjaan(id string, p models.PekerjaanAlumni) (models.PekerjaanAlumni, error)
+	DeletePekerjaan(id string) error
+}
+
 type MockPekerjaanRepo struct {
 	Data map[string]models.PekerjaanAlumni
 }
